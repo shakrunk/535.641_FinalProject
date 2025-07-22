@@ -7,6 +7,8 @@ try:
     compute_sml,
     create_focus_decision_map,
     fuse_pyramids,
+    build_gaussian_pyramid,
+    build_laplacian_pyramid,
     process_z_stack
   )
 except ImportError:
@@ -14,6 +16,8 @@ except ImportError:
   def compute_sml(image, kernel_size=3): return np.zeros_like(image, dtype=np.float64)
   def create_focus_decision_map(sml_maps): return np.zeros_like(sml_maps[0], dtype=int)
   def fuse_pyramids(laplacian_pyramids, decision_map): return laplacian_pyramids[0][0]
+  def build_gaussian_pyramid(image, levels): return [image] * levels
+  def build_laplacian_pyramid(image, levels): return [image] * levels
   
 # Path to test data (real and synthetic)
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
@@ -115,11 +119,31 @@ def test_fuse_pyramids():
   # Assert that the function's output is the expected result
   assert np.array_equal(fused_level, expected_result)
 
-# Test build_gaussian_pyramid() and build_laplacian_pyramid() for correct structure
-# Create a sample 128x128 grayscale image
-# Build a pyramid with a specific number of levels (e.g., 4)
-# Assert that the returned pyramid is a list containing the correct number of images (e.g., 4)
-# Assert that the dimensions of each image in the pyramid are halved at each level (128x128 -> 64x64 -> 32x32 -> 16x16)
+def test_pyramid_structure():
+  """
+  Test build_gaussian_pyramid() and build_laplacian_pyramid() for correct structure.
+  - Create a sample 128x128 grayscale image.
+  - Build pyramids with a specific number of levels
+  - Assert the returned pyramids are lists containing the correct number of images
+  - Assert the dimension of each image are halved at each level.
+  """
+  # Create a sample 128x128 grayscale image
+  image = np.zeros((128, 128), dtype=np.uint8)
+  
+  # Build a pyramid with a specific number of levels (e.g., 4)
+  levels = 4
+  gauss_pyramid = build_gaussian_pyramid(image, levels)
+  laplace_pyramid = build_laplacian_pyramid(image, levels)
+  
+  # Assert the returned pyramid is a list containing the correct number of images (e.g., 4)
+  assert len(gauss_pyramid) == levels
+  assert len(laplace_pyramid) == levels
+  
+  # Assert the dimensions of each image in the pyramid are halved at each level (128x128 -> 64x64 -> 32x32 -> 16x16)
+  for i in range(levels):
+    expected_dim = 128 // (2**i)
+    assert gauss_pyramid[i].shape == (expected_dim, expected_dim)
+    assert laplace_pyramid[i].shape == (expected_dim, expected_dim)
 
 ## -------------------------------- ##
 ## Integration Tests                ##
