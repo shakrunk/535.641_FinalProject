@@ -111,28 +111,41 @@ def test_create_focus_decision_map():
 def test_fuse_pyramids():
   """
   Test fuse_pyramids() for correct pixel fusion logic
-  - Create two simple, known Laplacian pyramids.
-  - Create a known 2x2 decision map.
+  - Create two simple images
+  - Create a known 4x4 decision map.
   - Call fuse_pyramids() with known pyramids and decision map.
   - Manually calculate the expected fused result.
   - Assert that the function's output is the expected result.
   """
-  # Create two simple, known Laplacian pyramids (e.g., one pyramid of all 1s, one of all 10s)
-  pyramid_a = [np.ones((2, 2), dtype=np.float64)]       # Pyramid for image A
-  pyramid_b = [np.full((2, 2), 10.0, dtype=np.float64)] # Pyramid for image B
-  laplacian_pyramids = [pyramid_a, pyramid_b]
+  # Create two simple images (one dark one light)
+  image_a = np.full((4, 4), 10.0, dtype=np.float64)  # Dark - image A
+  image_b = np.full((4, 4), 200.0, dtype=np.float64) # Light - image B
+  z_stack = [image_a, image_b]
 
-  # Create a known 2x2 decision map 
-  decision_map = np.array([[0, 1], [1, 0]])             # Use pyramid A then B, then B then A
+  # Create a known 4x4 decision map 
+  decision_map = np.array([
+    [0, 0, 1, 1],
+    [0, 0, 1, 1],
+    [0, 0, 1, 1],
+    [0, 0, 1, 1]
+  ], dtype=int)
 
-  # Call the function to fuse the pyramids
-  fused_level = fuse_pyramids(laplacian_pyramids, decision_map)
-
-  # Manually calculate the expected result
-  expected_result = np.array([[1.0, 10.0], [10.0, 1.0]])
+  # Call the function to fuse the images with laplacian pyramids
+  fused_image = fuse_pyramids(z_stack, decision_map, levels=2)
   
-  # Assert that the function's output is the expected result
-  assert np.array_equal(fused_level, expected_result)
+  # Isolate pixels for testing
+  pixel_from_a= fused_image[1, 1]
+  pixel_from_b= fused_image[3, 3]
+
+  # Assert the pixel that came from image a was supposed to
+  assert abs(pixel_from_a - 10.0) < abs(pixel_from_a - 200.0)
+  
+  # Assert the pixel that came from image b was supposed to
+  assert abs(pixel_from_b - 200.0) < abs(pixel_from_b - 10.0)
+
+  # Check final output properties
+  assert fused_image.shape == (4, 4)
+  assert fused_image.dtype == np.uint8
 
 def test_pyramid_structure():
   """

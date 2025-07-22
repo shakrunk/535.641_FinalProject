@@ -219,7 +219,7 @@ def fuse_pyramids(z_stack: List[np.ndarray], decision_map: np.ndarray,
       h, w = fused_pyramid[level].shape[:2]
       
       # Upsample and add
-      upsampled = cv2.resize(reconstructed, (w, h), interpolate=cv2.INTER_LINEAR)
+      upsampled = cv2.resize(reconstructed, (w, h), interpolation=cv2.INTER_LINEAR)
       reconstructed = upsampled + fused_pyramid[level]
    
    # Clip to valid range
