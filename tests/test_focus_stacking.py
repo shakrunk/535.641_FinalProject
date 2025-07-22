@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from pathlib import Path
 try:
-  from src.image_pipeline import (
+  from microscope_mosaic_pipeline import (
     compute_sml,
     create_focus_decision_map,
     fuse_pyramids,
@@ -40,11 +40,28 @@ def synthetic_images():
 ## Unit Tests                       ##
 ## -------------------------------- ##
 
-# Test compute_sml() for correct focus measurement
-# Compute the SML score for both the sharp and blurred images
-# Assert that the SML score of the sharp image is significantly higher than the blurred one
-# Assert that the output SML map has the same dimensions as the input image
-# Assert that the output SML map is a floating-point array (e.g., np.float64)
+def test_compute_sml(synthetic_images):
+  """
+  Tests compute_sml() for correct focus measurement.
+  - Compute the SML score for both the sharp and blurred images.
+  - Assert that the sharp image's SML score is higher than the blurred one.
+  - Assert that the output SML map has the same dimensions as the input image.
+  - Assert that the output SML map is a floating-point array.
+  """
+  sharp_img, blurred_img = synthetic_images
+  
+  # Compute SML score for sharp and blurred images
+  sml_sharp = compute_sml(sharp_img)
+  sml_blurred = compute_sml(blurred_img)
+
+  # Assert SML score of sharp image is higher than blurred one
+  assert np.sum(sml_sharp) > np.sum(sml_blurred)
+
+  # Assert output SML map has the same dimensions as the input
+  assert sml_sharp.shape == sharp_img.shape
+
+  # assert output SML map is a floating-point array
+  assert sml_sharp.dtype == np.float64
 
 # Test create_focus_decision_map() for correct index mapping
 # Create a list of three simple, known 2x2 SML maps where the max value is in a different location for each pixel
