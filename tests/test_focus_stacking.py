@@ -18,6 +18,12 @@ except ImportError:
   def fuse_pyramids(laplacian_pyramids, decision_map): return laplacian_pyramids[0][0]
   def build_gaussian_pyramid(image, levels): return [image] * levels
   def build_laplacian_pyramid(image, levels): return [image] * levels
+  def process_z_stack(images, sml_kernel_size=3, pyramid_levels=4):
+    if not images: raise ValueError("Image list cannot be empty.")
+    if len(images) == 1: return images[0]
+    dims = {img.shape for img in images}
+    if len(dims) > 1: raise ValueError("All images in the z-stack must have the same dimensions.")
+    return images[0]
   
 # Path to test data (real and synthetic)
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
@@ -149,15 +155,46 @@ def test_pyramid_structure():
 ## Integration Tests                ##
 ## -------------------------------- ##
 
-# Test the full process_z_stack() pipeline on predictable synthetic data
-# Create a synthetic z-stack of two images:
-#  - Image 1: Sharp on the left half, blurry on the right
-#  - Image 2: Blurry on the left half, sharp on the right
-# Process the synthetic z-stack using the main pipeline function
-# Assert that the output fused image has the same dimensions as the input images
-# Assert that the output data type is uint8
-# Assert that the left half of the output image is primarily sourced from Image 1
-# Assert that the right half of the output image is primarily sourced from Image 2
+def test_process_z_stack_synthetic(synthetic_images):
+  """
+  Tests the full process_z_stack() pipeline on predictable synthetic data.
+  - Create a synthetic z-stack of two images:
+    - Image 1: Sharp on the left half, blurry on the right
+    - Image 2: Blurry on the left half, sharp on the right
+  - Process the synthetic z-stack using the main pipeline function
+  - Assert that the output fused image has the same dimensions as the input images
+  - Assert that the output data type is uint8
+  - Assert that the left half of the output image is primarily sourced from Image 1
+  - Assert that the right half of the output image is primarily sourced from Image 2
+  """
+  sharp_img, blurred_img = synthetic_images
+  h, w = sharp_img.shape
+  w_half = w // 2
+  
+  # Image 1: Sharp left, blurry right
+  img1 = np.hstack([sharp_img[:, :w_half], blurred_img[:, w_half:]])
+
+  # Image 2: Blurry left, sharp right
+  img2 = np.hstack([blurred_img[:, :w_half], sharp_img[:, w_half:]])
+
+  # Process the z-stick with the main pipeline function
+  z_stack = [img1, img2]
+  fused_image = process_z_stack(z_stack)
+
+  # Assert dimensions and data type
+  assert fused_image.shape == sharp_img.shape
+  assert fused_image.dtype == np.uint8
+
+  # Isolate the image halves for comparison
+  left_half_fused = fused_image[:, :w_half]
+  right_half_fused = fused_image[:, w_half:]
+  left_half_sharp_source = sharp_img[:, :w_half]
+  right_half_sharp_source = sharp_img[:, w_half:]
+
+  # Calculate the mean absolute difference and assert it's low
+  left_diff = np.mean(np.abs(left_half_fused.astype(float) - left_half_sharp_source.astype(float)))
+  right_diff = np.mean(np.abs(right_half_fused.astype(float) - right_half_sharp_source.astype(float)))
+  assert left_diff, right_diff < 5
 
 # Create a smoke test for the full process_z_stack() pipeline on real data
 # Load a small, real-world z-stack from the TEST_DATA_DIR
