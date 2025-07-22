@@ -1,18 +1,46 @@
+import pytest
 import numpy as np
 import cv2
 from pathlib import Path
-# from src.image_pipeline import compute_sml, create_focus_decision_map, fuse_pyramids, process_z_stack
-
+try:
+  from src.image_pipeline import (
+    compute_sml,
+    create_focus_decision_map,
+    fuse_pyramids,
+    process_z_stack
+  )
+except ImportError:
+  # Define dummy functions if the source is not available (allows test file to be parsed w/o error)
+  def compute_sml(image, kernel_size=3): return np.zeros_like(image, dtype=np.float64)
+  
 # Path to test data (real and synthetic)
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
+
+## -------------------------------- ##
+## Fixtures                         ##
+## -------------------------------- ##
+
+@pytest.fixture
+def synthetic_images():
+  """Creates a sharp and blurred synthetic image for testing."""
+  # Create a sharp synthetic image with high-frequency details (checkerboard)
+  sharp_img = np.zeros((128, 128), dtype=np.uint8)
+  # Make a checkerboard pattern
+  for i in range(0, 128, 16):
+    for j in range(0, 128, 16):
+      if (i // 16+j // 16) % 2 == 0:
+        sharp_img[i:i+16,j:j+16] = 255
+
+  # Create a programmatically blurred version of the sharp image
+  blurred_img = cv2.GaussianBlur(sharp_img, (15, 15), 0)
+
+  return sharp_img, blurred_img
 
 ## -------------------------------- ##
 ## Unit Tests                       ##
 ## -------------------------------- ##
 
 # Test compute_sml() for correct focus measurement
-# Create a sharp synthetic image with high-frequency details (e.g., text or checkerboard)
-# Create a programmatically blurred version of the sharp image (e.g., using cv2.GaussianBlur)
 # Compute the SML score for both the sharp and blurred images
 # Assert that the SML score of the sharp image is significantly higher than the blurred one
 # Assert that the output SML map has the same dimensions as the input image
