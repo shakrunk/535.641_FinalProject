@@ -8,6 +8,9 @@
     "cursorindexingignore",
     "cython",
     "dmypy",
+    "Downsample",
+    "downsampled",
+    "downsampling",
     "envrc",
     "homography",
     "hstack",
@@ -38,6 +41,7 @@
     "Spyder",
     "spyderproject",
     "spyproject",
+    "upsampled",
     "venv",
     "webassets"
   ],

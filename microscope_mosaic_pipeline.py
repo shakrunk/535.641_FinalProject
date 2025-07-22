@@ -91,6 +91,65 @@ def compute_sml(image: np.ndarray, kernel_size: int = 3) -> np.ndarray:
 
    return sml
 
+def build_gaussian_pyramid(image: np.ndarray, levels: int = 6) -> List[np.ndarray]:
+   """
+   Build a Gaussian pyramid by repeatedly blurring and downsampling.
+
+   Args:
+      image: Input image
+      levels: Number of pyramid levels
+   
+   Returns
+      List of pyramid levels, from original (level 0) to smallest
+   """
+   pyramid = [image.astype(np.float64)]
+   
+   for _ in range(levels - 1):
+      # Blur with Gaussian filter
+      blurred = cv2.GaussianBlur(pyramid[-1], (5, 5), 1.0)
+
+      # Downsample by factor of 2
+      downsampled = blurred[::2, ::2]
+      pyramid.append(downsampled)
+
+   return pyramid
+
+def build_laplacian_pyramid(image: np.ndarray, levels: int = 6) -> List[np.ndarray]:
+   """
+   Build a Laplacian pyramid from a Gaussian pyramid.
+   
+   The Laplacian pyramid contains the high-frequency details at each scale.
+   
+   Args:
+      image: Input image
+      levels: Number of pyramid levels
+   
+   Returns:
+      List of Laplacian pyramid levels
+   """
+   # First build the Gaussian pyramid
+   gaussian_pyramid = build_gaussian_pyramid(image, levels)
+   laplacian_pyramid = []
+   
+   # Each level is the difference between the Gaussian level
+   # and the upsampled version of the next smaller level
+   for i in range(levels - 1):
+      # Get the dimensions of current level
+      h, w = gaussian_pyramid[i].shape[:2]
+      
+      # Upsample the next level
+      upsampled = cv2.resize(gaussian_pyramid[i + 1], (w, h),
+                             interpolation=cv2.INTER_LINEAR)
+      
+      # Compute difference
+      laplacian = gaussian_pyramid[i] - upsampled
+      laplacian_pyramid.append(laplacian)
+
+   # The last level is just the smallest Gaussian level
+   laplacian_pyramid.append(gaussian_pyramid[-1])
+   
+   return laplacian_pyramid
+
 def fuse_pyramids(z_stack: List[np.ndarray], decision_map: np.ndarray,
                   levels: int = 6) -> np.ndarray:
    """
