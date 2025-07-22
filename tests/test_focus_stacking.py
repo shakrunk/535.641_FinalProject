@@ -196,11 +196,37 @@ def test_process_z_stack_synthetic(synthetic_images):
   right_diff = np.mean(np.abs(right_half_fused.astype(float) - right_half_sharp_source.astype(float)))
   assert left_diff, right_diff < 5
 
-# Create a smoke test for the full process_z_stack() pipeline on real data
-# Load a small, real-world z-stack from the TEST_DATA_DIR
-# Run the complete process_z_stack() function on this data
-# Assert that the function executes without raising an exception
-# Assert that the returned image is a non-empty NumPy array with the expected dimensions and uint8 data type
+@pytest.mark.skipif(not TEST_DATA_DIR.exists(), reason="Test data director not found")
+def test_process_z_stack_real_data_smoke_test():
+  """
+  Create a smoke test for the full process_z_stack() pipeline on real data.
+  - Load a small, real-world z-stack from the TEST_DATA_DIR.
+  - Run the complete process_z_stack() function on this data.
+  - Assert the function executes without raising an exception.
+  - Assert the returned image is a non-empty NumPy array w/ the expected properties
+  """
+  # This test expects two images name 'z0.png' and 'z1.png' in the test_data folder.
+  try:
+    img_paths = [TEST_DATA_DIR / "z0.png", TEST_DATA_DIR / "z1.png"]
+    images = [cv2.imread(str(p), cv2.IMREAD_GRAYSCALE) for p in img_paths]
+    if any(img is None for img in images):
+      pytest.skip("Could not load real test images.")
+  except Exception:
+    pytest.skip("Failed to read real test images.")
+  
+  # Assert that the function executes without raising an exception
+  try:
+    fused_image = process_z_stack(images)
+  except Exception as e:
+    pytest.fail(f"process_z_stack() raised an exception on real data: {e}")
+
+  # Assert the returned image is a non-empty NumPy array
+  assert isinstance(fused_image, np.ndarray)
+  assert fused_image.size > 0
+
+  # Assert the returned image has the expected properties
+  assert fused_image.shape == images[0].shape
+  assert fused_image.dtype == np.uint8
 
 ## -------------------------------- ##
 ## Edge Case & Error Handling Tests ##

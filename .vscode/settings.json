@@ -12,6 +12,7 @@
     "homography",
     "hstack",
     "htmlcov",
+    "imread",
     "ipynb",
     "ipython",
     "marimo",
