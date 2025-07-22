@@ -31,6 +31,9 @@ Usage
 
 Parameters
 ---
+Focus Stacking:
+   kernel_size : int, optional
+      Size of the kernel for the SML focus measure (default is 3).
 
 Dependencies
 ---
@@ -75,13 +78,13 @@ def compute_sml(image: np.ndarray, kernel_size: int = 3) -> np.ndarray:
    kernel_y = kernel_x.T
    
    # Apply kernels
-   lap_x = cv2.filter2D(gray, cv2.CV_32F, kernel_x)
-   lap_y = cv2.filter2D(gray, cv2.CV_32F, kernel_y)
+   lap_x = cv2.filter2D(gray, cv2.CV_64F, kernel_x)
+   lap_y = cv2.filter2D(gray, cv2.CV_64F, kernel_y)
 
    # Sum of absolute values (modified part of SML)
    sml = np.abs(lap_x) + np.abs(lap_y)
 
    # Apply averaging filter to reduce noise
-   sml = cv2.boxFilter(sml, cv2.CV_32F, (kernel_size, kernel_size))
+   sml = cv2.boxFilter(sml, cv2.CV_64F, (kernel_size, kernel_size))
 
    return sml
