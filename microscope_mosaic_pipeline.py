@@ -24,6 +24,8 @@ Key Functions
 Focus Stacking:
    - process_z_stack(): The complete focus stacking pipeline for a single z-stack
    - compute_sml(): Implements the Sum-Modified-Laplacian focus measure.
+   - build_gaussian_pyramid: Creates a gaussian pyramid of an image.
+   - build_laplacian_pyramid: Creates a laplacian pyramid of an image.
    - fuse_pyramids(): Fuses Laplacian pyramids based on a focus decision map.
 
 Usage
@@ -34,6 +36,8 @@ Parameters
 Focus Stacking:
    kernel_size : int, optional
       Size of the kernel for the SML focus measure (default is 3).
+   levels : int, optional
+      Number of levels in the Gaussian/Laplacian pyramids (default is 6).
 
 Dependencies
 ---
