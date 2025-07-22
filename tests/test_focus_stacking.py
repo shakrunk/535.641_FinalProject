@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 import cv2
 from pathlib import Path
+from microscope_mosaic_pipeline import create_focus_decision_map
 
 # Define dummy functions if the source is not available (allows test file to be parsed w/o error)
 try:
@@ -84,7 +85,7 @@ def test_compute_sml(synthetic_images):
   # assert output SML map is a floating-point array
   assert sml_sharp.dtype == np.float64
 
-def test_create_focus_decision_map():
+def test_create_focus_decision_map(mocker):
   """
   Tests create_focus_decision_map() for correct index mapping.
   - Create a list of three 2x2 SML maps; max value is different location for each
@@ -93,17 +94,26 @@ def test_create_focus_decision_map():
   - Assert that the generated decision map is identical to the expected decision map.
   """
   # Create a list of three simple, known 2x2 SML maps
-  sml_maps = [
+  sml_maps_to_return = [
     np.array([[10, 2], [3, 4]], dtype=np.float64),  # Max at (0,0) is 10 (index 0)
     np.array([[5, 20], [8, 1]], dtype=np.float64),  # Max at (0,1) is 20 (index 1)
     np.array([[1,2], [30, 40]], dtype=np.float64)   # Max at (1,0) is 30, (1,1) is 40 (index 2)
   ]
 
-  # Define the expected 2x2 decision map
-  expected_decision_map = np.array([[0, 1], [2, 2]], dtype=int)
+  # Patch `compute_sml` to the sml maps
+  mocker.patch(
+    'microscope_mosaic_pipeline.compute_sml',
+    side_effect=sml_maps_to_return
+  )
+
+  # Create the dummy images (just need to exist, content is irrelevant)
+  dummy_images = [np.zeros((2, 2)) for _ in range(3)]
+
+  # Define the expected decision map (based on sml_maps_to_return)
+  expected_decision_map = np.array([[0, 1], [2, 2]], dtype=np.uint8)
 
   # Generate the actual decision map using the function
-  actual_decision_map = create_focus_decision_map(sml_maps)
+  actual_decision_map = create_focus_decision_map(dummy_images)
 
   # Assert that the generated map is identical to expected map
   assert np.array_equal(actual_decision_map, expected_decision_map)

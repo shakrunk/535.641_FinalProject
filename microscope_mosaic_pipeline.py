@@ -24,8 +24,9 @@ Key Functions
 Focus Stacking:
    - process_z_stack(): The complete focus stacking pipeline for a single z-stack
    - compute_sml(): Implements the Sum-Modified-Laplacian focus measure.
-   - build_gaussian_pyramid: Creates a gaussian pyramid of an image.
-   - build_laplacian_pyramid: Creates a laplacian pyramid of an image.
+   - create_focus_decision_map(): Creates a map of which image in a z-stack is sharpest
+   - build_gaussian_pyramid(): Creates a gaussian pyramid of an image.
+   - build_laplacian_pyramid(): Creates a laplacian pyramid of an image.
    - fuse_pyramids(): Fuses Laplacian pyramids based on a focus decision map.
 
 Usage
@@ -94,6 +95,39 @@ def compute_sml(image: np.ndarray, kernel_size: int = 3) -> np.ndarray:
    sml = cv2.boxFilter(sml, cv2.CV_64F, (kernel_size, kernel_size))
 
    return sml
+
+def create_focus_decision_map(z_stack: List[np.ndarray]) -> np.ndarray:
+   """
+   Create a decision map indicating which image in the z-stack 
+   has the highest focus measure at each pixel location.
+   
+   Args:
+      z_stack: List of images from the same location at different focal depth
+      
+   Returns:
+      Decision map where each pixel contains the index of the sharpest image
+   """
+   # Ensure the function receives a z-stack
+   if not z_stack:
+      raise ValueError("Z-stack cannot be empty")
+   
+   # Get stack info
+   h, w = z_stack[0].shape[:2]
+   
+   # Initialize arrays to track maximum SML and corresponding image index
+   max_sml = np.zeros((h, w), dtype=np.float64)
+   decision_map = np.zeros((h, w), dtype=np.uint8)
+   
+   # Process each image in the z-stack
+   for idx, image in enumerate(z_stack):
+      sml = compute_sml(image)
+      
+      # Update decision map where current image his higher SML
+      mask = sml > max_sml
+      max_sml[mask] = sml[mask]
+      decision_map[mask] = idx
+      
+   return decision_map
 
 def build_gaussian_pyramid(image: np.ndarray, levels: int = 6) -> List[np.ndarray]:
    """
