@@ -12,6 +12,8 @@ try:
 except ImportError:
   # Define dummy functions if the source is not available (allows test file to be parsed w/o error)
   def compute_sml(image, kernel_size=3): return np.zeros_like(image, dtype=np.float64)
+  def create_focus_decision_map(sml_maps): return np.zeros_like(sml_maps[0], dtype=int)
+  def fuse_pyramids(laplacian_pyramids, decision_map): return laplacian_pyramids[0][0]
   
 # Path to test data (real and synthetic)
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
