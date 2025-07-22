@@ -63,11 +63,29 @@ def test_compute_sml(synthetic_images):
   # assert output SML map is a floating-point array
   assert sml_sharp.dtype == np.float64
 
-# Test create_focus_decision_map() for correct index mapping
-# Create a list of three simple, known 2x2 SML maps where the max value is in a different location for each pixel
-# Define the expected 2x2 decision map where each pixel's value is the index (0, 1, or 2) of the max SML value
-# Generate the actual decision map using the function
-# Assert that the generated decision map is identical to the expected decision map (using np.array_equal)
+def test_create_focus_decision_map():
+  """
+  Tests create_focus_decision_map() for correct index mapping.
+  - Create a list of three 2x2 SML maps; max value is different location for each
+  - Define the expected 2x2 decision map where each pixel's value is the SML Value's index
+  - Generate the actual decision map using the function.
+  - Assert that the generated decision map is identical to the expected decision map.
+  """
+  # Create a list of three simple, known 2x2 SML maps
+  sml_maps = [
+    np.array([[10, 2], [3, 4]], dtype=np.float64),  # Max at (0,0) is 10 (index 0)
+    np.array([[5, 20], [8, 1]], dtype=np.float64),  # Max at (0,1) is 20 (index 1)
+    np.array([[1,2], [30, 40]], dtype=np.float64)   # Max at (1,0) is 30, (1,1) is 40 (index 2)
+  ]
+
+  # Define the expected 2x2 decision map
+  expected_decision_map = np.array([[0, 1], [2, 2]], dtype=int)
+
+  # Generate the actual decision map using the function
+  actual_decision_map = create_focus_decision_map(sml_maps)
+
+  # Assert that the generated map is identical to expected map
+  assert np.array_equal(actual_decision_map, expected_decision_map)
 
 # Test fuse_pyramids() for correct pixel fusion logic
 # Create two simple, known Laplacian pyramids (e.g., one pyramid of all 1s, one of all 10s)
