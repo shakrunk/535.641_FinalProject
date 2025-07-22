@@ -39,10 +39,12 @@ Dependencies
 ---
 -   cv2 (OpenCV)
 -   numpy
+-   typing
 """
 
 import cv2
 import numpy as np
+from typing import List
 
 # ============================================================================
 # Stage 1: Per-location Depth-of-Field Extension (Focus Stacking)
@@ -88,3 +90,26 @@ def compute_sml(image: np.ndarray, kernel_size: int = 3) -> np.ndarray:
    sml = cv2.boxFilter(sml, cv2.CV_64F, (kernel_size, kernel_size))
 
    return sml
+
+def fuse_pyramids(z_stack: List[np.ndarray], decision_map: np.ndarray,
+                  levels: int = 6) -> np.ndarray:
+   """
+   Fuse multiple images using Laplacian pyramid blending based on decision map.
+   
+   Args:
+      z_stack: List of images to fuse
+      decision_map: Map indication which image to use at each pixel
+      levels: Number of pyramid levels
+
+   Returns:
+      Fused image combining in-focus regions from all images
+   """
+   # Ensure that the z_stack was passed to the function
+   if not z_stack:
+      raise ValueError("Z-stack cannot be empty")
+
+   # Get info on the stack
+   h, w = z_stack[0].shape[:2]
+   n_channels = z_stack[0].shape[2] if len(z_stack[0].shape) == 3 else 1
+   
+   # Build Laplacian pyramids for all images
