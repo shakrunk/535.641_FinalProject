@@ -66,12 +66,12 @@ def compute_sml(image: np.ndarray, kernel_size: int = 3) -> np.ndarray:
       gray = image.copy()
 
    # Convert ot float for precision
-   gray = gray.astype(np.float32)
+   gray = gray.astype(np.float64)
    
    # Compute modified Laplacian using separate kernels for x and y
    kernel_x = np.array([[0, 0, 0],
                         [1, -2, 1],
-                        [0, 0, 0]], dtype=np.float32)
+                        [0, 0, 0]], dtype=np.float64)
    kernel_y = kernel_x.T
    
    # Apply kernels

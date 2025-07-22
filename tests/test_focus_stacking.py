@@ -2,22 +2,31 @@ import pytest
 import numpy as np
 import cv2
 from pathlib import Path
+
+# Define dummy functions if the source is not available (allows test file to be parsed w/o error)
 try:
-  from microscope_mosaic_pipeline import (
-    compute_sml,
-    create_focus_decision_map,
-    fuse_pyramids,
-    build_gaussian_pyramid,
-    build_laplacian_pyramid,
-    process_z_stack
-  )
+  from microscope_mosaic_pipeline import compute_sml
 except ImportError:
-  # Define dummy functions if the source is not available (allows test file to be parsed w/o error)
   def compute_sml(image, kernel_size=3): return np.zeros_like(image, dtype=np.float64)
+try:
+  from microscope_mosaic_pipeline import create_focus_decision_map
+except ImportError:
   def create_focus_decision_map(sml_maps): return np.zeros_like(sml_maps[0], dtype=int)
+try:
+  from microscope_mosaic_pipeline import fuse_pyramids
+except ImportError:
   def fuse_pyramids(laplacian_pyramids, decision_map): return laplacian_pyramids[0][0]
+try:
+  from microscope_mosaic_pipeline import build_gaussian_pyramid
+except ImportError:
   def build_gaussian_pyramid(image, levels): return [image] * levels
+try:
+  from microscope_mosaic_pipeline import build_laplacian_pyramid
+except ImportError:
   def build_laplacian_pyramid(image, levels): return [image] * levels
+try:
+  from microscope_mosaic_pipeline import process_z_stack
+except ImportError:
   def process_z_stack(images, sml_kernel_size=3, pyramid_levels=4):
     if not images: raise ValueError("Image list cannot be empty.")
     if len(images) == 1: return images[0]
