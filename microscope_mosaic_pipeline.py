@@ -6,6 +6,10 @@ wide-field mosaic from a collection of microscopy z-stacks.  The process first
 creates an all-in-focus image from each z-stack (focus stacking) and then
 stitches these focused images together into a final panoramic mosaic.
 
+This script was developed by Krishna A. Kumar and Nicholas Merten for the course
+535.641 Mathematical Methods at Johns Hopkins University, in collaboration with
+the Rocky Mountain Lion's Eye Bank (RMLEB). Copyright (2025)
+
 Pipeline Stages
 ---
 1. **Focus Stacking**: Uses a Laplacian pyramid fusion technique guided by a
