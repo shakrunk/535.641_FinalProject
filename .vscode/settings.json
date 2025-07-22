@@ -18,6 +18,7 @@
     "marimo",
     "mkdocs",
     "mypy",
+    "ndarray",
     "nosetests",
     "pipenv",
     "Pipfile",
