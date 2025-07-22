@@ -176,3 +176,53 @@ def fuse_pyramids(z_stack: List[np.ndarray], decision_map: np.ndarray,
    n_channels = z_stack[0].shape[2] if len(z_stack[0].shape) == 3 else 1
    
    # Build Laplacian pyramids for all images
+   pyramids = []
+   for img in z_stack:
+      if n_channels == 1 and len(img.shape) == 3:
+         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+      pyramids.append(build_laplacian_pyramid(img, levels))
+
+   # Build Gaussian pyramid for decision map to match pyramid levels
+   decision_pyramid = build_gaussian_pyramid(decision_map.astype(np.float64), levels)
+   
+   # Create fused pyramid by selecting from source pyramids based on decision map
+   fused_pyramid = []
+   for level in range(levels):
+      # Get the dimensions of current level
+      level_h, level_w = pyramids[0][level].shape[:2]
+      
+      # Initialize fused level
+      if n_channels == 3:
+         fused_level = np.zeros((level_h, level_w, n_channels), dtype=np.float64)
+      else:
+         fused_level = np.zeros((level_h, level_w), dtype=np.float64)
+      
+      # Round and clip decision values to valid indices
+      decision_level = np.round(decision_pyramid[level]).astype(int)
+      decision_level = np.clip(decision_level, 0, len(z_stack) - 1)
+
+      # Copy pixels from appropriate source images
+      for idx in range(len(z_stack)):
+         mask = (decision_level == idx)
+         if n_channels == 3:
+            for c in range(n_channels):
+               fused_level[mask, c] = pyramids[idx][level][mask, c]
+         else:
+            fused_level[mask] = pyramids[idx][level][mask]
+      
+      fused_pyramid.append(fused_level)
+      
+   # Reconstruct image from fused pyramid
+   reconstructed = fused_pyramid[-1]
+   for level in range(levels - 2, -1, -1):
+      # Get dimensions of target level
+      h, w = fused_pyramid[level].shape[:2]
+      
+      # Upsample and add
+      upsampled = cv2.resize(reconstructed, (w, h), interpolate=cv2.INTER_LINEAR)
+      reconstructed = upsampled + fused_pyramid[level]
+   
+   # Clip to valid range
+   reconstructed = np.clip(reconstructed, 0, 255).astype(np.uint8)
+
+   return reconstructed
