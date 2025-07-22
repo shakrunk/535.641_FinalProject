@@ -260,3 +260,23 @@ def fuse_pyramids(z_stack: List[np.ndarray], decision_map: np.ndarray,
    reconstructed = np.clip(reconstructed, 0, 255).astype(np.uint8)
 
    return reconstructed
+
+def process_z_stack(z_stack: List[np.ndarray]) -> np.ndarray:
+   """
+   Process a complete z-stack to create a single all-in-focus image.
+   
+   Args:
+      z_stack: List of images from the same location at different focal depths
+   
+   Returns:
+      Single composite image with extended depth of field
+   """
+   print(f"Processing z-stack with {len(z_stack)} images...")
+   
+   # Create focus decision map
+   decision_map = create_focus_decision_map(z_stack)
+   
+   # Fuse images using Laplacian pyramid
+   fused_image = fuse_pyramids(z_stack, decision_map)
+   
+   return fused_image
