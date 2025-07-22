@@ -87,12 +87,31 @@ def test_create_focus_decision_map():
   # Assert that the generated map is identical to expected map
   assert np.array_equal(actual_decision_map, expected_decision_map)
 
-# Test fuse_pyramids() for correct pixel fusion logic
-# Create two simple, known Laplacian pyramids (e.g., one pyramid of all 1s, one of all 10s)
-# Create a known 2x2 decision map (e.g., [[0, 1], [1, 0]])
-# Call fuse_pyramids() with the known pyramids and decision map
-# Manually calculate the expected fused result (e.g., a combination of 1s and 10s based on the map)
-# Assert that the function's output is identical to the expected result
+def test_fuse_pyramids():
+  """
+  Test fuse_pyramids() for correct pixel fusion logic
+  - Create two simple, known Laplacian pyramids.
+  - Create a known 2x2 decision map.
+  - Call fuse_pyramids() with known pyramids and decision map.
+  - Manually calculate the expected fused result.
+  - Assert that the function's output is the expected result.
+  """
+  # Create two simple, known Laplacian pyramids (e.g., one pyramid of all 1s, one of all 10s)
+  pyramid_a = [np.ones((2, 2), dtype=np.float64)]       # Pyramid for image A
+  pyramid_b = [np.full((2, 2), 10.0, dtype=np.float64)] # Pyramid for image B
+  laplacian_pyramids = [pyramid_a, pyramid_b]
+
+  # Create a known 2x2 decision map 
+  decision_map = np.array([[0, 1], [1, 0]])             # Use pyramid A then B, then B then A
+
+  # Call the function to fuse the pyramids
+  fused_level = fuse_pyramids(laplacian_pyramids, decision_map)
+
+  # Manually calculate the expected result
+  expected_result = np.array([[1.0, 10.0], [10.0, 1.0]])
+  
+  # Assert that the function's output is the expected result
+  assert np.array_equal(fused_level, expected_result)
 
 # Test build_gaussian_pyramid() and build_laplacian_pyramid() for correct structure
 # Create a sample 128x128 grayscale image
