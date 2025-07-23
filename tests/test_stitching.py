@@ -32,6 +32,14 @@ except ImportError:
         return np.eye(3), []
 
 
+try:
+    from microscope_mosaic_pipeline import warp_image
+except ImportError:
+
+    def warp_image(image, homography, output_shape):
+        return image
+
+
 # ============================================================================
 # Fixtures
 # ============================================================================
@@ -303,7 +311,35 @@ def test_estimate_homography_with_edge_cases():
 # Image Warping Unit Tests
 # ============================================================================
 
-# Test warp_image() with a simple translation
+def test_warp_image_translation():
+    """
+    Tests warp_image() with a simple translation
+    - Create a test image with known pattern
+    - Apply translation homography
+    - Verify the warped image has the pattern in the expected location
+    """
+    # Create a test image
+    test_img = np.zeros((100, 100), dtype=np.uint8)
+    cv2.rectangle(test_img, (20, 20), (40, 40), 255, -1)
+    
+    # Create translation homography
+    H = np.array([[1, 0, 30], [0, 1, 220], [0, 0, 1]], dtype=np.float32)
+    
+    # Warp image
+    output_shape = (150, 150)
+    warped = warp_image(test_img, H, output_shape)
+
+    # Verify warped image properties
+    assert warped.shape[:2] == output_shape, "Output shape mismatch"
+    assert warped.dtype == test_img.dtype, "Data type should be preserved"
+    
+    # Check if rectangle moved to expected position
+    expected_region = warped[40:60, 50:70]
+    assert np.mean(expected_region) > 200, "Rectangle should be in new position"
+    
+    # Original position should be empty
+    original_region = warped[20:40, 20:40]
+    assert np.mean(original_region) < 50, "Original position should be empty"
 
 # Test warp_image() boundary handling
 
