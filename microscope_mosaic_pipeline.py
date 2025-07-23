@@ -56,7 +56,7 @@ Dependencies
 
 import cv2
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 
 # ============================================================================
 # Stage 1: Per-location Depth-of-Field Extension (Focus Stacking)
@@ -408,3 +408,46 @@ def estimate_homography(
 
     # The mask from findHomography is a column vector (N, 1) of uint8.
     return homography, mask
+
+
+def warp_image(
+    img: np.ndarray,
+    homography: np.ndarray,
+    output_shape: Tuple[int, int],
+    return_mask: bool = False,
+) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+    """
+    Warps an image using a given homography matrix.
+
+    Args:
+        img: The image to be warped.
+        homography: The 3x3 transformation matrix.
+        output_shape: A tuple (height, width) for the output canvas.
+        return_mask: If True, also returns a mask of the valid warped pixels.
+
+    Returns:
+        The warped image. If return_mask is True, returns a tuple of
+        (warped_image, mask).
+    """
+    # Note: cv2.warpPerspective expects (width, height)
+    output_wh = (output_shape[1], output_shape[0])
+
+    warped_img = cv2.warpPerspective(img, homography, output_wh)
+
+    if return_mask:
+        # Create a mask of the same size as the input image
+        if img.ndim > 2:  # Handle color or grayscale images
+            mask_in = np.ones(img.shape[:2], dtype=np.uint8) * 255
+        else:
+            mask_in = np.ones_like(img, dtype=np.uint8) * 255
+
+        # Warp the mask to find the valid pixel area in the output
+        warped_mask = cv2.warpPerspective(
+            mask_in, 
+            homography, 
+            output_wh, 
+            flags=cv2.INTER_NEAREST
+        )
+        return warped_img, warped_mask
+
+    return warped_img

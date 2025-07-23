@@ -238,13 +238,10 @@ def test_match_features_with_threshold(mocker):
         mock_knn_matches = [
             # GOOD: 10.0 < 0.7 * 20.0  (10.0 < 14.0) -> True
             [Mock(distance=10.0), Mock(distance=20.0)],
-
             # GOOD: 20.0 < 0.7 * 40.0  (20.0 < 28.0) -> True
             [Mock(distance=20.0), Mock(distance=40.0)],
-
             # BAD: 100.0 < 0.7 * 110.0 (100.0 < 77.0) -> False
             [Mock(distance=100.0), Mock(distance=110.0)],
-
             # BAD: 150.0 < 0.7 * 160.0 (150.0 < 112.0) -> False
             [Mock(distance=150.0), Mock(distance=160.0)],
         ]
@@ -355,11 +352,11 @@ def test_warp_image_translation():
     test_img = np.zeros((100, 100), dtype=np.uint8)
     cv2.rectangle(test_img, (20, 20), (40, 40), 255, -1)
 
-    # Create translation homography
-    H = np.array([[1, 0, 30], [0, 1, 220], [0, 0, 1]], dtype=np.float32)
+    # Create translation homography (translates by x=30, y=20)
+    H = np.array([[1, 0, 30], [0, 1, 20], [0, 0, 1]], dtype=np.float32)
+    output_shape = (150, 150)
 
     # Warp image
-    output_shape = (150, 150)
     warped = warp_image(test_img, H, output_shape)
 
     # Verify warped image properties
@@ -499,15 +496,16 @@ def test_blend_images_multiway():
 # Integration Tests
 # ============================================================================
 
+
 def test_create_mosaic_two_images(synthetic_panorama_images):
-    """ 
+    """
     Tests create_mosaic() with two overlapping images
     - Use synthetic images with known overlap
     - Create mosaic and verify it's larger than individual images
     - Check that content from both images is preserved
     """
     img1, img2, _ = synthetic_panorama_images
-    
+
     # Create mosaic
     images = [img1, img2]
     mosaic = create_mosaic(images)
@@ -515,7 +513,9 @@ def test_create_mosaic_two_images(synthetic_panorama_images):
     # Verify mosaic properties
     assert mosaic is not None, "Mosaic creation failed"
     assert mosaic.ndim == 2 or mosaic.shape[2] in [1, 3], "Invalid mosaic dimensions"
-    assert mosaic.shape[1] > img1.shape[1], "Mosaic width should be larger than single image"
+    assert (
+        mosaic.shape[1] > img1.shape[1]
+    ), "Mosaic width should be larger than single image"
 
     # Both images should contribute to the mosaic
     assert np.max(mosaic) > 0, "Mosaic should not be empty"
@@ -523,7 +523,7 @@ def test_create_mosaic_two_images(synthetic_panorama_images):
 
 
 def test_create_mosaic_multiple_images():
-    """ 
+    """
     Tests create_mosaic() with multiple (3+) images.
     - Create a grid of overlapping images
     - Verify the final mosaic combines all images
@@ -539,13 +539,14 @@ def test_create_mosaic_multiple_images():
             # Add unique pattern to each image
             cv2.putText(img, f"{i},{j}", (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 2)
             images.append(img)
-    
+
     # Create mosaic
     mosaic = create_mosaic(images)
 
     # Verify mosaic is created
     assert mosaic is not None, "Failed to create mosaic from multiple images"
     assert mosaic.size > 0, "Mosaic should not be empty"
+
 
 # Smoke test for create_mosaic() with real microscopy data.
 
