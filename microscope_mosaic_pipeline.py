@@ -323,7 +323,7 @@ def detect_features_orb(image: np.ndarray, n_features: int = 5000) -> Tuple[List
                          nlevels=8,
                          edgeThreshold=31,
                          firstLevel=0,
-                         WTA_K=2
+                         WTA_K=2,
                          scoreType=cv2.ORB_HARRIS_SCORE,
                          patchSize=31)
     
