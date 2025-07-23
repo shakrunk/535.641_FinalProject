@@ -528,24 +528,25 @@ def test_create_mosaic_multiple_images():
     - Create a grid of overlapping images
     - Verify the final mosaic combines all images
     """
-    # Create 3x3 grid of overlapping images
-    base_size = (100, 100)
-    overlap = 30
-    images = []
+    # Create a large source image with features
+    canvas = np.zeros((200, 600), dtype=np.uint8)
+    for i in range(1, 6): # Add vertical lines as features
+        cv2.line(canvas, (i*100, 0), (i*100, 200), 255, 3)
 
-    for i in range(3):
-        for j in range(3):
-            img = np.zeros(base_size, dtype=np.uint8)
-            # Add unique pattern to each image
-            cv2.putText(img, f"{i},{j}", (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 2)
-            images.append(img)
-
-    # Create mosaic
+    # Extract 3 overlapping images from the source
+    img_width = 250
+    overlap = 50
+    images = [
+        canvas[:, 0:img_width],  # 0 to 250
+        canvas[:, img_width - overlap : 2 * img_width - overlap], # 200 to 450
+        canvas[:, 2 * img_width - 2 * overlap : 3 * img_width - 2 * overlap] # 400 to 650 -> clip at 600
+    ]
+    
+    # Create and verify the mosaic
     mosaic = create_mosaic(images)
 
-    # Verify mosaic is created
     assert mosaic is not None, "Failed to create mosaic from multiple images"
-    assert mosaic.size > 0, "Mosaic should not be empty"
+    assert mosaic.shape[1] > img_width, "Mosaic width should be larger than a single image"
 
 
 # Smoke test for create_mosaic() with real microscopy data.
