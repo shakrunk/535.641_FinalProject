@@ -33,7 +33,7 @@ Mosaic Stitching:
     - detect_features_orb(): Detects ORB features in an image.
     - match_features(): Matches keypoint descriptors between two images.
     - estimate_homography(): Estimates image transformation with RANSAC.
-    - warp_image(): Applies a perspective transformation to an image. 
+    - warp_image(): Applies a perspective transformation to an image.
     - blend_images(): Blends multiple overlapping images into one.
 
 Usage
@@ -56,7 +56,7 @@ Dependencies
 
 import cv2
 import numpy as np
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 # ============================================================================
 # Stage 1: Per-location Depth-of-Field Extension (Focus Stacking)
@@ -300,17 +300,19 @@ def process_z_stack(z_stack: List[np.ndarray]) -> np.ndarray:
 # ============================================================================
 
 
-def detect_features_orb(image: np.ndarray, n_features: int = 5000) -> Tuple[List[cv2.KeyPoint], np.ndarray]:
-    """ 
+def detect_features_orb(
+    image: np.ndarray, n_features: int = 5000
+) -> Tuple[List[cv2.KeyPoint], np.ndarray]:
+    """
     Detect ORB (Oriented FAST and Rotated BRIEF) features in an image.
-    
+
     Args:
         image: Input image
         n_features: Maximum number of features to detect
-    
+
     Returns:
         Tuple of (keypoints, descriptors)
-    """ 
+    """
     # Convert to grayscale if needed
     if len(image.shape) == 3:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -318,38 +320,43 @@ def detect_features_orb(image: np.ndarray, n_features: int = 5000) -> Tuple[List
         gray = image
 
     # Create ORB detector
-    orb = cv2.ORB_create(nfeatures=n_features,
-                         scaleFactor=1.2,
-                         nlevels=8,
-                         edgeThreshold=31,
-                         firstLevel=0,
-                         WTA_K=2,
-                         scoreType=cv2.ORB_HARRIS_SCORE,
-                         patchSize=31)
-    
+    orb = cv2.ORB_create(
+        nfeatures=n_features,
+        scaleFactor=1.2,
+        nlevels=8,
+        edgeThreshold=31,
+        firstLevel=0,
+        WTA_K=2,
+        scoreType=cv2.ORB_HARRIS_SCORE,
+        patchSize=31,
+    )
+
     # Detect keypoints and compute descriptors
     keypoints, descriptors = orb.detectAndCompute(gray, None)
 
     return keypoints, descriptors
 
-def match_features(desc1: np.ndarray, desc2: np.ndarray, ratio_threshold: float = 0.7) -> List:
+
+def match_features(
+    desc1: np.ndarray, desc2: np.ndarray, ratio_threshold: float = 0.7
+) -> List:
     """
     Match ORB features between two sets of descriptors using brute force matching.
-    
+
     Args:
         desc1: Descriptors from first image
         desc2: Descriptors from second image
         ratio_threshold: Lowe's ratio test threshold
-    
+
     Returns:
         List of good matches
     """
     # Create brute force matcher with Hamming distance (for binary descriptors)
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-    
+
     # Match descriptors
     matches = bf.knnMatch(desc1, desc2, k=2)
-    
+
     # Apply Lowe's ratio test to filter good matches
     good_matches = []
     for match_pair in matches:
@@ -357,5 +364,49 @@ def match_features(desc1: np.ndarray, desc2: np.ndarray, ratio_threshold: float 
             m, n = match_pair
             if m.distance < ratio_threshold * n.distance:
                 good_matches.append(m)
-    
+
     return good_matches
+
+
+def estimate_homography(
+    kp1: List,
+    kp2: List,
+    matches: List,
+    ransac_threshold: float = 5.0,
+    confidence: float = 0.99,
+) -> Optional[np.ndarray]:
+    """
+    Estimate homography between two images using RANSAC.
+
+    Args:
+        kp1: Keypoints from first image
+        kp2: Keypoints from second image
+        matches: List of matches between keypoints
+        ransac_threshold: RANSAC re-projection error threshold in pixels
+        confidence: Desired confidence level
+
+    Returns:
+        3x3 homography matrix or None if not enough matches
+    """
+    if len(matches) < 4:
+        return None
+
+    # Extract matched point coordinates
+    src_pts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+    dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
+
+    # Find homography using RANSAC
+    homography, mask = cv2.findHomography(
+        src_pts,
+        dst_pts,
+        cv2.RANSAC,
+        ransacThreshold=ransac_threshold,
+        confidence=confidence,
+    )
+
+    # Count inliers
+    if mask is not None:
+        inliers = np.sum(mask)
+        print(f"RANSAC found {inliers}/{len(matches)} inliers")
+
+    return homography
