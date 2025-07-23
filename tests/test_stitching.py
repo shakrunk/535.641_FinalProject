@@ -11,6 +11,30 @@ TEST_DATA_DIR = Path(__file__).parent / "test_data"
 # ============================================================================
 
 # Create a synthetic image with known overlapping regions for testing.
+@pytest.fixture
+def synthetic_panorama_images():
+  """Creates synthetic images with known overlapping regions for testing."""
+  # Create base image with distinctive pattern
+  base_img = np.zeros((200, 300), dtype=np.uint8)
+
+  # Add checkerboard pattern
+  for i in range(0, 200, 20):
+    for j in range(0, 300, 20):
+      if (i // 20 + j // 20) % 2 == 0:
+        base_img[i:i+20, j:j+20] = 255
+  
+  # Add some unique markers for feature detection
+  cv2.circle(base_img, (50, 50), 10, 128, -1)
+  cv2.rectangle(base_img, (200, 100), (250, 150), 200, -1)
+
+  # Create overlapping images with known transformations
+  img1 = base_img.copy()            # Original image
+  img2 = np.zeros_like(base_img)
+  img2[:, :200] = base_img[:, 100:] # Translated 100 to the right (50 overlap)
+  img3 = np.zeros_like(base_img)
+  img3[50:, :] = base_img[:150, :]  # Translated 50 down
+  
+  return img1, img2, img3  
 
 # Create synthetic feature points and descriptors for testing
 
