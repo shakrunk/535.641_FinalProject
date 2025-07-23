@@ -270,7 +270,34 @@ def test_estimate_homography_known_transform():
     assert sum(inliers) >= 4, "Should have at least 4 inliers"
 
 
-# Test estimate_homography with edge cases
+def test_estimate_homography_with_edge_cases():
+    """
+    Tests estimate_homography with edge cases
+    - Test with minimum number of points (4)
+    - Test with all outliers
+    - Test with collinear points
+    """
+    # Minimum points
+    min_pts1 = np.array([[0, 0], [10, 0], [10, 10], [0, 10]], dtype=np.float32)
+    min_pts2 = np.array([[5, 5], [15, 5], [15, 15], [5, 15]], dtype=np.float32)
+    H_min, inliers_min = estimate_homography(min_pts1, min_pts2)
+    assert H_min is not None, "Should handle minimum points"
+
+    # All outliers (random points)
+    np.random.seed(535641)  # For repeatability
+    outlier_pts1 = np.random.rand(10, 2) * 100
+    outlier_pts2 = np.random.rand(10, 2) * 100
+    H_outlier, inliers_outlier = estimate_homography(outlier_pts1, outlier_pts2)
+    assert (
+        H_outlier is None or np.sum(inliers_outlier) <= 4
+    ), "Homography from outliers should have no or few inliers"
+
+    # Collinear points (degenerate case)
+    collinear_pts1 = np.array([[0, 0], [10, 0], [20, 0], [30, 0]], dtype=np.float32)
+    collinear_pts2 = np.array([[0, 10], [10, 10], [20, 10], [30, 10]], dtype=np.float32)
+    H_collinear, inliers_collinear = estimate_homography(collinear_pts1, collinear_pts2)
+    # Should handle gracefully
+
 
 # ============================================================================
 # Image Warping Unit Tests
