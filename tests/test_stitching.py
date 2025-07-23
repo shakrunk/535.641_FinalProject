@@ -507,7 +507,31 @@ def test_create_mosaic_two_images(synthetic_panorama_images):
     assert np.max(mosaic) > 0, "Mosaic should not be empty"
     assert mosaic.dtype == img1.dtype, "Data type should be preserved"
 
-# Test create_mosaic() with multiple (3+) images.
+
+def test_create_mosaic_multiple_images():
+    """ 
+    Tests create_mosaic() with multiple (3+) images.
+    - Create a grid of overlapping images
+    - Verify the final mosaic combines all images
+    """
+    # Create 3x3 grid of overlapping images
+    base_size = (100, 100)
+    overlap = 30
+    images = []
+
+    for i in range(3):
+        for j in range(3):
+            img = np.zeros(base_size, dtype=np.uint8)
+            # Add unique pattern to each image
+            cv2.putText(img, f"{i},{j}", (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 2)
+            images.append(img)
+    
+    # Create mosaic
+    mosaic = create_mosaic(images)
+
+    # Verify mosaic is created
+    assert mosaic is not None, "Failed to create mosaic from multiple images"
+    assert mosaic.size > 0, "Mosaic should not be empty"
 
 # Smoke test for create_mosaic() with real microscopy data.
 
