@@ -40,6 +40,14 @@ except ImportError:
         return image
 
 
+try:
+    from microscope_mosaic_pipeline import blend_images
+except ImportError:
+
+    def blend_images(images, masks):
+        return images[0] if images else None
+
+
 # ============================================================================
 # Fixtures
 # ============================================================================
@@ -376,7 +384,43 @@ def test_warp_image_with_mask():
 # Image Blending Unit Tests
 # ============================================================================
 
-# Test blend_images() with two overlapping images
+def test_blend_images_simple():
+    """ 
+    Test blend_images() with two overlapping images
+    - Create two images with known overlap regions
+    - Blend them together
+    - Verify smooth transition in overlap region
+    - Check that non-overlapping regions are preserved
+    """
+    # Create two overlapping images
+    img1 = np.full((100, 150), 50, dtype=np.uint8)
+    img2 = np.full((100, 150), 200, dtype=np.uint8)
+
+    # Create masks (overlap in middle 50 pixels)
+    mask1 = np.zeros((100, 150), dtype=np.uint8)
+    mask1[:, :100] = 255
+    
+    mask2 = np.zeros((100, 150), dtype=np.uint8)
+    mask2[:, 50:] = 255
+    
+    # Blend images
+    images = [img1, img2]
+    masks = [mask1, mask2]
+    blended = blend_images(images, masks)
+    
+    # Verify output properties
+    assert blended.shape == img1.shape, "Output shape should match input"
+    assert blended.dtype == img1.dtype, "Output dtype should match input"
+    
+    # Check non-overlapping regions
+    left_region = blended[:, :50]
+    right_region = blended[:, 100:]
+    assert np.allclose(left_region, 50, atol=5), "Left region should be from img1"
+    assert np.allclose(right_region, 200, atol=5), "Right region should be from img2"
+    
+    # Check overlap region has smooth transition
+    overlap_region = blended[:, 50:100]
+    assert 50 < np.mean(overlap_region) < 200, "Overlap should be blended"
 
 # Test blend_images() with multiple (3+) overlapping images
 
