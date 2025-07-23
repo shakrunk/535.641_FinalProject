@@ -482,3 +482,50 @@ def blend_images(images: List[np.ndarray], masks: List[np.ndarray]) -> np.ndarra
     result = np.where(weight_sum > 0, blended_image / weight_sum, 0)
 
     return result.astype(np.uint8)
+
+def create_mosaic(images: List[np.ndarray]) -> np.ndarray:
+    """
+    Stitch multiple images into a panoramic mosaic.
+    
+    Args:
+        images: List of images to stitch
+    
+    Returns:
+        Stitched panoramic image
+    """
+    if len(images) < 2:
+        return images[0] if images else None
+    
+    print(f"Stitching {len(images)} images...")
+    
+    # Start with the first image
+    result = images[0].copy()
+    
+    # Sequentially stitch each image
+    for i in range(1, len(images)):
+        print(f"Processing image {i+1}/{len(images)}")
+        
+        # Detect features
+        kp1, desc1 = detect_features_orb(result)
+        kp2, desc2 = detect_features_orb(images[i])
+        
+        if desc1 is None or desc2 is None:
+            print(f"Warning: No features detected in image pair {i}")
+            continue
+        
+        # Match features
+        matches = match_features(desc1, desc2)
+        print(f"Found {len(matches)} feature matches")
+        
+        if len(matches) < 10:
+            print(f"Warning: Not enough matches for image {i+1}")
+            continue
+        
+        # Estimate homography
+        homography = estimate_homography(kp1, kp2, matches)
+        
+        if homography is None:
+            print(f"Warning: Could not compute homography for image {i+1}")
+            continue
+        
+    return result
