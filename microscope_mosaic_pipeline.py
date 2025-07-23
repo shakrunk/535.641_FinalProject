@@ -443,10 +443,7 @@ def warp_image(
 
         # Warp the mask to find the valid pixel area in the output
         warped_mask = cv2.warpPerspective(
-            mask_in, 
-            homography, 
-            output_wh, 
-            flags=cv2.INTER_NEAREST
+            mask_in, homography, output_wh, flags=cv2.INTER_NEAREST
         )
         return warped_img, warped_mask
 
