@@ -10,7 +10,6 @@ TEST_DATA_DIR = Path(__file__).parent / "test_data"
 # Fixtures
 # ============================================================================
 
-# Create a synthetic image with known overlapping regions for testing.
 @pytest.fixture
 def synthetic_panorama_images():
   """Creates synthetic images with known overlapping regions for testing."""
