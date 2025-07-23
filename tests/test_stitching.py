@@ -29,11 +29,14 @@ def synthetic_panorama_images():
 
   # Create overlapping images with known transformations
   img1 = base_img.copy()            # Original image
+
   img2 = np.zeros_like(base_img)
   img2[:, :200] = base_img[:, 100:] # Translated 100 to the right (50 overlap)
+
   img3 = np.zeros_like(base_img)
   img3[50:, :] = base_img[:150, :]  # Translated 50 down
   
+  # Return the synthetic images
   return img1, img2, img3  
 
 # Create synthetic feature points and descriptors for testing
