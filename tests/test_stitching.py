@@ -6,6 +6,13 @@ from pathlib import Path
 # Path to test data
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
 
+# Define dummy functions if the source is not available (allows error-free parsing of tests)
+try:
+    from microscope_mosaic_pipeline import detect_features_orb
+except ImportError:
+    def detect_features_orb(image):
+        return [], []
+
 # ============================================================================
 # Fixtures
 # ============================================================================
@@ -74,6 +81,34 @@ def synthetic_features():
 # ============================================================================
 
 # Test detect_features_orb() for correct feature detection
+def test_detect_features_orb(synthetic_panorama_images):
+    """
+    Tests detect_features_orb() for correct features detection.
+    - Detect features in a synthetic image with known patterns
+    - Assert that features are detected (non-empty lists)
+    - Assert keypoints have expected properties (x, y, size, angle, etc.)
+    - Assert descriptors have correct shape and tata type   
+    """
+    img1, _, _ = synthetic_panorama_images
+
+    # Detect features
+    keypoints, descriptors = detect_features_orb(img1)
+    
+    # Assert features are detected
+    assert len(keypoints) > 0, "No keypoints detected"
+    assert descriptors is not None and len(descriptors) > 0, "No descriptors computed"
+
+    # Assert keypoints have expected properties
+    for point in keypoints:
+        assert hasattr(point, 'pt'), "Keypoint missing pt attribute"
+        assert hasattr(point, 'size'), "Keypoint missing size attribute"
+        assert 0 <= point.pt[0] < img1.shape[1], "Keypoint x coordinate out of bounds"
+        assert 0 <= point.pt[1] < img1.shape[0], "Keypoint y coordinate out of bounds"
+    
+    # Assert descriptors have correct shape and type
+    assert descriptors.dtype == np.uint8, "Descriptors should be uint8"
+    assert descriptors.shape[0] == len(keypoints), "Number of descriptors should match keypoints"
+    assert descriptors.shape[1] == 32, "ORB descriptors should be 32 bytes"
 
 # Test detect_features_orb() with edge cases
 
