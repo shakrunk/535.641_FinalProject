@@ -5,8 +5,8 @@
 Automated wide-field mosaic and multi-focus fusion pipeline for microscopy images. This project combines z-stack focus stacking with panoramic image stitching to create sharp, seamless microscopy mosaics.
 
 <p align="center">
-  <img src="https://brand.jhu.edu/wp-content/uploads/2024/07/logos-vertical-1024x683.jpg" alt="Johns Hopkins University" width="500">
-  <img src="https://www.guidestar.org/ViewEdoc.aspx?eDocId=4258124&approved=True" alt="Rocky Mountain Lions Eye Bank" width="250" style="padding: 100px">
+  <img src="ReadmeAssets/JHU Logo Padding.jpeg" alt="Johns Hopkins University" width="500">
+  <img src="ReadmeAssets/RMLEB Logo Padding.png" alt="Rocky Mountain Lions Eye Bank" width="500">
 </p>
 
 Developed for course 535.641 Mathematical Methods at Johns Hopkins University, in collaboration with the Rocky Mountain Lion's Eye Bank (RMLEB).
