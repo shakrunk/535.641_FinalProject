@@ -28,6 +28,13 @@ Focus Stacking:
     - build_gaussian_pyramid(): Creates a gaussian pyramid of an image.
     - build_laplacian_pyramid(): Creates a laplacian pyramid of an image.
     - fuse_pyramids(): Fuses Laplacian pyramids based on a focus decision map.
+Mosaic Stitching:
+    - create_mosaic(): Sequentially stitches a list of multiple images.
+    - detect_features_orb(): Detects ORB features in an image.
+    - match_features(): Matches keypoint descriptors between two images.
+    - estimate_homography(): Estimates image transformation with RANSAC.
+    - warp_image(): Applies a perspective transformation to an image. 
+    - blend_images(): Blends multiple overlapping images into one.
 
 Usage
 ---
@@ -49,7 +56,7 @@ Dependencies
 
 import cv2
 import numpy as np
-from typing import List
+from typing import List, Tuple
 
 # ============================================================================
 # Stage 1: Per-location Depth-of-Field Extension (Focus Stacking)
@@ -286,3 +293,41 @@ def process_z_stack(z_stack: List[np.ndarray]) -> np.ndarray:
     fused_image = fuse_pyramids(z_stack, decision_map)
 
     return fused_image
+
+
+# ============================================================================
+# Stage 2: Spacial Mosaic Stitching
+# ============================================================================
+
+
+def detect_features_orb(image: np.ndarray, n_features: int = 5000) -> Tuple[List[cv2.KeyPoint], np.ndarray]:
+    """ 
+    Detect ORB (Oriented FAST and Rotated BRIEF) features in an image.
+    
+    Args:
+        image: Input image
+        n_features: Maximum number of features to detect
+    
+    Returns:
+        Tuple of (keypoints, descriptors)
+    """ 
+    # Convert to grayscale if needed
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image
+
+    # Create ORB detector
+    orb = cv2.ORB_create(nfeatures=n_features,
+                         scaleFactor=1.2,
+                         nlevels=8,
+                         edgeThreshold=31,
+                         firstLevel=0,
+                         WTA_K=2
+                         scoreType=cv2.ORB_HARRIS_SCORE,
+                         patchSize=31)
+    
+    # Detect keypoints and compute descriptors
+    keypoints, descriptors = orb.detectAndCompute(gray, None)
+
+    return keypoints, descriptors
