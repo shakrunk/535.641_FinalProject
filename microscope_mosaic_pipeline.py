@@ -331,3 +331,31 @@ def detect_features_orb(image: np.ndarray, n_features: int = 5000) -> Tuple[List
     keypoints, descriptors = orb.detectAndCompute(gray, None)
 
     return keypoints, descriptors
+
+def match_features(desc1: np.ndarray, desc2: np.ndarray, ratio_threshold: float = 0.7) -> List:
+    """
+    Match ORB features between two sets of descriptors using brute force matching.
+    
+    Args:
+        desc1: Descriptors from first image
+        desc2: Descriptors from second image
+        ratio_threshold: Lowe's ratio test threshold
+    
+    Returns:
+        List of good matches
+    """
+    # Create brute force matcher with Hamming distance (for binary descriptors)
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+    
+    # Match descriptors
+    matches = bf.knnMatch(desc1, desc2, k=2)
+    
+    # Apply Lowe's ratio test to filter good matches
+    good_matches = []
+    for match_pair in matches:
+        if len(match_pair) == 2:
+            m, n = match_pair
+            if m.distance < ratio_threshold * n.distance:
+                good_matches.append(m)
+    
+    return good_matches
