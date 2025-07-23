@@ -24,6 +24,7 @@
     "Keypoints",
     "marimo",
     "mkdocs",
+    "multiway",
     "mypy",
     "ndarray",
     "nosetests",

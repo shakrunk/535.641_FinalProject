@@ -48,6 +48,16 @@ except ImportError:
         return images[0] if images else None
 
 
+try:
+    from microscope_mosaic_pipeline import create_mosaic
+except ImportError:
+
+    def create_mosaic(images):
+        if not images:
+            raise ValueError("Image list cannot be empty.")
+        return images[0]
+
+
 # ============================================================================
 # Fixtures
 # ============================================================================
@@ -319,6 +329,7 @@ def test_estimate_homography_with_edge_cases():
 # Image Warping Unit Tests
 # ============================================================================
 
+
 def test_warp_image_translation():
     """
     Tests warp_image() with a simple translation
@@ -329,10 +340,10 @@ def test_warp_image_translation():
     # Create a test image
     test_img = np.zeros((100, 100), dtype=np.uint8)
     cv2.rectangle(test_img, (20, 20), (40, 40), 255, -1)
-    
+
     # Create translation homography
     H = np.array([[1, 0, 30], [0, 1, 220], [0, 0, 1]], dtype=np.float32)
-    
+
     # Warp image
     output_shape = (150, 150)
     warped = warp_image(test_img, H, output_shape)
@@ -340,14 +351,15 @@ def test_warp_image_translation():
     # Verify warped image properties
     assert warped.shape[:2] == output_shape, "Output shape mismatch"
     assert warped.dtype == test_img.dtype, "Data type should be preserved"
-    
+
     # Check if rectangle moved to expected position
     expected_region = warped[40:60, 50:70]
     assert np.mean(expected_region) > 200, "Rectangle should be in new position"
-    
+
     # Original position should be empty
     original_region = warped[20:40, 20:40]
     assert np.mean(original_region) < 50, "Original position should be empty"
+
 
 def test_warp_image_with_mask():
     """
@@ -357,15 +369,26 @@ def test_warp_image_with_mask():
     """
     # Create test image
     test_img = np.full((100, 100), 128, dtype=np.uint8)
-    
+
     # Rotation + translation homography
-    angle = np.pi / 6 # 30 deg
+    angle = np.pi / 6  # 30 deg
     cx, cy = 50, 50
-    H = np.array([
-        [np.cos(angle), -np.sin(angle), cx - cx*np.cos(angle) + cy*np.sin(angle)],
-        [np.sin(angle), np.cos(angle), cy - cx*np.sin(angle) - cy*np.cos(angle)],
-        [0, 0, 1]        
-    ], dtype=np.float32)
+    H = np.array(
+        [
+            [
+                np.cos(angle),
+                -np.sin(angle),
+                cx - cx * np.cos(angle) + cy * np.sin(angle),
+            ],
+            [
+                np.sin(angle),
+                np.cos(angle),
+                cy - cx * np.sin(angle) - cy * np.cos(angle),
+            ],
+            [0, 0, 1],
+        ],
+        dtype=np.float32,
+    )
 
     # Warp image and get mask
     output_shape = (150, 150)
@@ -380,12 +403,14 @@ def test_warp_image_with_mask():
     valid_pixels = warped[mask > 0]
     assert len(valid_pixels) > 0, "Should have some valid pixels"
 
+
 # ============================================================================
 # Image Blending Unit Tests
 # ============================================================================
 
+
 def test_blend_images_simple():
-    """ 
+    """
     Test blend_images() with two overlapping images
     - Create two images with known overlap regions
     - Blend them together
@@ -399,36 +424,88 @@ def test_blend_images_simple():
     # Create masks (overlap in middle 50 pixels)
     mask1 = np.zeros((100, 150), dtype=np.uint8)
     mask1[:, :100] = 255
-    
+
     mask2 = np.zeros((100, 150), dtype=np.uint8)
     mask2[:, 50:] = 255
-    
+
     # Blend images
     images = [img1, img2]
     masks = [mask1, mask2]
     blended = blend_images(images, masks)
-    
+
     # Verify output properties
     assert blended.shape == img1.shape, "Output shape should match input"
     assert blended.dtype == img1.dtype, "Output dtype should match input"
-    
+
     # Check non-overlapping regions
     left_region = blended[:, :50]
     right_region = blended[:, 100:]
     assert np.allclose(left_region, 50, atol=5), "Left region should be from img1"
     assert np.allclose(right_region, 200, atol=5), "Right region should be from img2"
-    
+
     # Check overlap region has smooth transition
     overlap_region = blended[:, 50:100]
     assert 50 < np.mean(overlap_region) < 200, "Overlap should be blended"
 
-# Test blend_images() with multiple (3+) overlapping images
+
+def test_blend_images_multiway():
+    """
+    Test blend_images() with multiple (3+) overlapping images
+    - Create three images with complex overlap pattern
+    - Verify all images contribute to the final result
+    """
+    # Create three images with different intensities
+    shape = (100, 200)
+    img1 = np.full(shape, 50, dtype=np.uint8)
+    img2 = np.full(shape, 150, dtype=np.uint8)
+    img3 = np.full(shape, 250, dtype=np.uint8)
+
+    # Create overlapping masks
+    mask1 = np.zeros(shape, dtype=np.uint8)
+    mask2 = np.zeros(shape, dtype=np.uint8)
+    mask3 = np.zeros(shape, dtype=np.uint8)
+    mask1[:, :100] = 255
+    mask2[:, 50:150] = 255
+    mask3[:, 100:] = 255
+
+    # Blend
+    images = [img1, img2, img3]
+    masks = [mask1, mask2, mask3]
+    blended = blend_images(images, masks)
+
+    # Verify multi-way blending occurred
+    assert blended.shape == shape, "Output shape mismatch"
+    # Should have gradual transitions
+    assert (
+        len(np.unique(blended)) > 3
+    ), "Should have smooth gradients, not just 3 values"
+
 
 # ============================================================================
 # Integration Tests
 # ============================================================================
 
-# Test create_mosaic() with two overlapping images
+def test_create_mosaic_two_images(synthetic_panorama_images):
+    """ 
+    Tests create_mosaic() with two overlapping images
+    - Use synthetic images with known overlap
+    - Create mosaic and verify it's larger than individual images
+    - Check that content from both images is preserved
+    """
+    img1, img2, _ = synthetic_panorama_images
+    
+    # Create mosaic
+    images = [img1, img2]
+    mosaic = create_mosaic(images)
+
+    # Verify mosaic properties
+    assert mosaic is not None, "Mosaic creation failed"
+    assert mosaic.ndim == 2 or mosaic.shape[2] in [1, 3], "Invalid mosaic dimensions"
+    assert mosaic.shape[1] > img1.shape[1], "Mosaic width should be larger than single image"
+
+    # Both images should contribute to the mosaic
+    assert np.max(mosaic) > 0, "Mosaic should not be empty"
+    assert mosaic.dtype == img1.dtype, "Data type should be preserved"
 
 # Test create_mosaic() with multiple (3+) images.
 
