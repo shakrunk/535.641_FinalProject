@@ -80,7 +80,6 @@ def synthetic_features():
 # Detection Unit Tests
 # ============================================================================
 
-# Test detect_features_orb() for correct feature detection
 def test_detect_features_orb(synthetic_panorama_images):
     """
     Tests detect_features_orb() for correct features detection.
@@ -110,7 +109,27 @@ def test_detect_features_orb(synthetic_panorama_images):
     assert descriptors.shape[0] == len(keypoints), "Number of descriptors should match keypoints"
     assert descriptors.shape[1] == 32, "ORB descriptors should be 32 bytes"
 
-# Test detect_features_orb() with edge cases
+def test_detect_features_edge_cases():
+    """
+    Tests detect_features_orb() with edge cases
+    - Test with blank image (should detect few or no features)
+    - Test with very small image
+    - Test with high-contrast image (should detect many features)
+    """
+    # Blank image
+    blank_img = np.zeros((100, 100), dtype=np.uint8)
+    points_blank, _ = detect_features_orb(blank_img)
+    assert len(points_blank) <= 5, "Blank image should have very few features"
+
+    # Very small image
+    small_img = np.random.randint(0, 256, (10, 10), dtype=np.uint8)
+    _, _ = detect_features_orb(small_img)
+    # Should handle gracefully without crashing
+
+    # High contrast image with many edges
+    contrast_img = np.random.randint(0, 2, (200, 200), dtype=np.uint8) * 255
+    points_contrast, _ = detect_features_orb(contrast_img)
+    assert len(points_contrast) > 10, "High contrast image should have many features"
 
 # ============================================================================
 # Feature Matching Unit Tests
