@@ -8,14 +8,20 @@
     "cursorindexingignore",
     "cython",
     "dmypy",
+    "Downsample",
+    "downsampled",
+    "downsampling",
     "envrc",
     "homography",
+    "hstack",
     "htmlcov",
+    "imread",
     "ipynb",
     "ipython",
     "marimo",
     "mkdocs",
     "mypy",
+    "ndarray",
     "nosetests",
     "pipenv",
     "Pipfile",
@@ -35,7 +41,13 @@
     "Spyder",
     "spyderproject",
     "spyproject",
+    "upsampled",
     "venv",
     "webassets"
-  ]
+  ],
+  "python.testing.pytestArgs": [
+    "tests"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
 }
