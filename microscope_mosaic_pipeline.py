@@ -448,3 +448,37 @@ def warp_image(
         return warped_img, warped_mask
 
     return warped_img
+
+
+def blend_images(images: List[np.ndarray], masks: List[np.ndarray]) -> np.ndarray:
+    """
+    Blends multiple images together using feathered weighting.
+
+    Args:
+        images: A list of images to blend.
+        masks: A list of corresponding masks (255 for valid pixels).
+
+    Returns:
+        A single blended image.
+    """
+    output_shape = images[0].shape
+    blended_image = np.zeros(output_shape, dtype=np.float32)
+    weight_sum = np.zeros(output_shape[:2], dtype=np.float32)
+
+    for img, mask in zip(images, masks):
+        # Use distance transform for smooth feathering at the edges
+        # This creates a weight map that falls off towards the mask boundaries
+        weights = cv2.distanceTransform(mask, cv2.DIST_L2, 5).astype(np.float32)
+
+        # Add weights to the total weight map, handling multiple channels if necessary
+        if img.ndim > 2:
+            weights = cv2.cvtColor(weights, cv2.COLOR_GRAY2BGR)
+
+        blended_image += img.astype(np.float32) * weights
+        weight_sum += weights
+
+    # Avoid division by zero
+    # np.where is faster than creating a mask and indexing
+    result = np.where(weight_sum > 0, blended_image / weight_sum, 0)
+
+    return result.astype(np.uint8)
