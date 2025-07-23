@@ -368,11 +368,6 @@ def match_features(
     return good_matches
 
 
-from typing import Optional, Tuple
-import numpy as np
-import cv2
-
-
 def estimate_homography(
     src_pts: np.ndarray,
     dst_pts: np.ndarray,
