@@ -341,7 +341,36 @@ def test_warp_image_translation():
     original_region = warped[20:40, 20:40]
     assert np.mean(original_region) < 50, "Original position should be empty"
 
-# Test warp_image() boundary handling
+def test_warp_image_with_mask():
+    """
+    Tests warp_image() boundary handling
+    - Warp an image and get the valid pixel mask
+    - Verify mask correctly identifies valid/invalid regions
+    """
+    # Create test image
+    test_img = np.full((100, 100), 128, dtype=np.uint8)
+    
+    # Rotation + translation homography
+    angle = np.pi / 6 # 30 deg
+    cx, cy = 50, 50
+    H = np.array([
+        [np.cos(angle), -np.sin(angle), cx - cx*np.cos(angle) + cy*np.sin(angle)],
+        [np.sin(angle), np.cos(angle), cy - cx*np.sin(angle) - cy*np.cos(angle)],
+        [0, 0, 1]        
+    ], dtype=np.float32)
+
+    # Warp image and get mask
+    output_shape = (150, 150)
+    warped, mask = warp_image(test_img, H, output_shape, return_mask=True)
+
+    # Verify mask properties
+    assert mask.shape[:2] == output_shape, "Mask shape should match output"
+    assert mask.dtype == np.uint8, "Mask should be uint8"
+    assert np.all(np.isin(mask, [0, 255])), "Mask should be binary (0 or 255)"
+
+    # Valid regions should have original intensity
+    valid_pixels = warped[mask > 0]
+    assert len(valid_pixels) > 0, "Should have some valid pixels"
 
 # ============================================================================
 # Image Blending Unit Tests
