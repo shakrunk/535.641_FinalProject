@@ -412,6 +412,4 @@ def estimate_homography(
         print(f"RANSAC found {inliers}/{len(src_pts)} inliers")
 
     # The mask from findHomography is a column vector (N, 1) of uint8.
-    # The tests might expect a flat boolean array. We return the raw mask
-    # as it's more standard, but flatten it if tests specifically require it.
     return homography, mask
