@@ -11,14 +11,26 @@ TEST_DATA_DIR = Path(__file__).parent / "test_data"
 try:
     from microscope_mosaic_pipeline import detect_features_orb
 except ImportError:
+
     def detect_features_orb(image):
         return [], []
+
 
 try:
     from microscope_mosaic_pipeline import match_features
 except ImportError:
+
     def match_features(desc1, desc2):
         return []
+
+
+try:
+    from microscope_mosaic_pipeline import estimate_homography
+except ImportError:
+
+    def estimate_homography(source, destination):
+        return np.eye(3), []
+
 
 # ============================================================================
 # Fixtures
@@ -87,34 +99,38 @@ def synthetic_features():
 # Detection Unit Tests
 # ============================================================================
 
+
 def test_detect_features_orb(synthetic_panorama_images):
     """
     Tests detect_features_orb() for correct features detection.
     - Detect features in a synthetic image with known patterns
     - Assert that features are detected (non-empty lists)
     - Assert keypoints have expected properties (x, y, size, angle, etc.)
-    - Assert descriptors have correct shape and tata type   
+    - Assert descriptors have correct shape and tata type
     """
     img1, _, _ = synthetic_panorama_images
 
     # Detect features
     keypoints, descriptors = detect_features_orb(img1)
-    
+
     # Assert features are detected
     assert len(keypoints) > 0, "No keypoints detected"
     assert descriptors is not None and len(descriptors) > 0, "No descriptors computed"
 
     # Assert keypoints have expected properties
     for point in keypoints:
-        assert hasattr(point, 'pt'), "Keypoint missing pt attribute"
-        assert hasattr(point, 'size'), "Keypoint missing size attribute"
+        assert hasattr(point, "pt"), "Keypoint missing pt attribute"
+        assert hasattr(point, "size"), "Keypoint missing size attribute"
         assert 0 <= point.pt[0] < img1.shape[1], "Keypoint x coordinate out of bounds"
         assert 0 <= point.pt[1] < img1.shape[0], "Keypoint y coordinate out of bounds"
-    
+
     # Assert descriptors have correct shape and type
     assert descriptors.dtype == np.uint8, "Descriptors should be uint8"
-    assert descriptors.shape[0] == len(keypoints), "Number of descriptors should match keypoints"
+    assert descriptors.shape[0] == len(
+        keypoints
+    ), "Number of descriptors should match keypoints"
     assert descriptors.shape[1] == 32, "ORB descriptors should be 32 bytes"
+
 
 def test_detect_features_edge_cases():
     """
@@ -138,9 +154,11 @@ def test_detect_features_edge_cases():
     points_contrast, _ = detect_features_orb(contrast_img)
     assert len(points_contrast) > 10, "High contrast image should have many features"
 
+
 # ============================================================================
 # Feature Matching Unit Tests
 # ============================================================================
+
 
 def test_match_features(synthetic_features):
     """
@@ -151,21 +169,22 @@ def test_match_features(synthetic_features):
     - Verify matched indices are valid
     """
     _, desc1, _, desc2 = synthetic_features
-    
+
     # Match features
     matches = match_features(desc1, desc2)
-    
+
     # Assert matches ar returned
     assert len(matches) > 0, "No matches found"
-    
+
     # Check match structure
     for match in matches:
-        assert hasattr(match, 'queryIdx'), "Match missing queryIdx"
-        assert hasattr(match, 'trainIdx'), "Match missing trainIdx"
-        assert hasattr(match, 'distance'), "Match missing distance"
+        assert hasattr(match, "queryIdx"), "Match missing queryIdx"
+        assert hasattr(match, "trainIdx"), "Match missing trainIdx"
+        assert hasattr(match, "distance"), "Match missing distance"
 
     # Distance should be non-negative
     assert match.distance >= 0, "Match distance should be non-negative"
+
 
 def test_match_features_with_threshold(mocker):
     """
@@ -179,28 +198,77 @@ def test_match_features_with_threshold(mocker):
 
     # Create mock matches with specific distances
     mock_matches = [
-        Mock(queryIdx=0, trainIdx=0, distance=10.0), # Good match
-        Mock(queryIdx=1, trainIdx=1, distance=20.0), # Good match
-        Mock(queryIdx=2, trainIdx=2, distance=100.0), # Bad match
-        Mock(queryIdx=3, trainIdx=3, distance=150.0), # Bad match
+        Mock(queryIdx=0, trainIdx=0, distance=10.0),  # Good match
+        Mock(queryIdx=1, trainIdx=1, distance=20.0),  # Good match
+        Mock(queryIdx=2, trainIdx=2, distance=100.0),  # Bad match
+        Mock(queryIdx=3, trainIdx=3, distance=150.0),  # Bad match
     ]
 
     # Mock the matcher to return our controlled matches
-    with patch('cv2.BFMatcher') as mock_bf:
+    with patch("cv2.BFMatcher") as mock_bf:
         mock_matcher = Mock()
-        mock_matcher.knnMatch.return_vale = [[m, Mock(distance=m.distance*2)] for m in mock_matches]
+        mock_matcher.knnMatch.return_vale = [
+            [m, Mock(distance=m.distance * 2)] for m in mock_matches
+        ]
         mock_bf.return_value = mock_matcher
-        
+
         matches = match_features(desc1, desc2, ratio_threshold=0.7)
-        
+
         # Should only return good matches (those passing ratio test)
         assert len(matches) == 2, "Should filter out bad matches"
+
 
 # ============================================================================
 # Homography Estimation Unit Tests
 # ============================================================================
 
-# Test estimate_homography() with known transformation
+
+def test_estimate_homography_known_transform():
+    """
+    Test estimate_homography() with known transformation
+    - Create point correspondences with a known homography (e.g., translation)
+    - Estimate homography from the points
+    - Assert the estimated homography is close to the known ground truth
+    - Verify inlier mask is correct
+    """
+    # Create known translation transform
+    tx, ty = 50, 30
+    true_H = np.array([[1, 0, tx], [0, 1, ty], [0, 0, 1]], dtype=np.float32)
+
+    # Generate point correspondences
+    source_pts = np.array(
+        [[10, 20], [50, 30], [100, 40], [150, 80], [200, 100]], dtype=np.float32
+    )
+
+    # Transform points with known homography
+    destination_pts = cv2.perspectiveTransform(
+        source_pts.reshape(-1, 1, 2), true_H
+    ).reshape(-1, 2)
+
+    # Add an outlier
+    destination_pts[4] = [250, 200]
+
+    # Estimate homography
+    estimated_H, inliers = estimate_homography(source_pts, destination_pts)
+
+    # Verify homography is close to ground truth (for inliers)
+    assert estimated_H is not None, "Homography estimation failed"
+    assert estimated_H.shape == (3, 3), "Homography should be 3x3 matrix"
+
+    # Test transformation of inlier points
+    for i in range(4):
+        source_pt = np.array([source_pts[i][0], source_pts[i][1], 1])
+        transformed = estimated_H @ source_pt
+        transformed = transformed[:2] / transformed[2]
+        expected = np.array([source_pts[i][0] + tx, source_pts[i][1] + ty])
+        assert np.allclose(
+            transformed, expected, atol=1.0
+        ), f"Point {i} transformation incorrect"
+
+    # Verify inlier mask
+    assert len(inliers) == len(source_pts), "Inlier mask size mismatch"
+    assert sum(inliers) >= 4, "Should have at least 4 inliers"
+
 
 # Test estimate_homography with edge cases
 
