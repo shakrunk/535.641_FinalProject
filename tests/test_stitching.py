@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 import cv2
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 # Path to test data
 TEST_DATA_DIR = Path(__file__).parent / "test_data"
@@ -166,7 +167,34 @@ def test_match_features(synthetic_features):
     # Distance should be non-negative
     assert match.distance >= 0, "Match distance should be non-negative"
 
-# Test match_features() filtering based on distance threshold.
+def test_match_features_with_threshold(mocker):
+    """
+    Tests match_features() filtering based on distance threshold.
+    - Create matches with known distances
+    - Verify that only good matches (below threshold) are returned
+    """
+    # Create mock descriptors
+    desc1 = np.random.randint(0, 256, (5, 32), dtype=np.uint8)
+    desc2 = np.random.randint(0, 256, (5, 32), dtype=np.uint8)
+
+    # Create mock matches with specific distances
+    mock_matches = [
+        Mock(queryIdx=0, trainIdx=0, distance=10.0), # Good match
+        Mock(queryIdx=1, trainIdx=1, distance=20.0), # Good match
+        Mock(queryIdx=2, trainIdx=2, distance=100.0), # Bad match
+        Mock(queryIdx=3, trainIdx=3, distance=150.0), # Bad match
+    ]
+
+    # Mock the matcher to return our controlled matches
+    with patch('cv2.BFMatcher') as mock_bf:
+        mock_matcher = Mock()
+        mock_matcher.knnMatch.return_vale = [[m, Mock(distance=m.distance*2)] for m in mock_matches]
+        mock_bf.return_value = mock_matcher
+        
+        matches = match_features(desc1, desc2, ratio_threshold=0.7)
+        
+        # Should only return good matches (those passing ratio test)
+        assert len(matches) == 2, "Should filter out bad matches"
 
 # ============================================================================
 # Homography Estimation Unit Tests
