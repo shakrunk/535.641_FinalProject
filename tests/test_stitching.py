@@ -525,28 +525,45 @@ def test_create_mosaic_two_images(synthetic_panorama_images):
 def test_create_mosaic_multiple_images():
     """
     Tests create_mosaic() with multiple (3+) images.
-    - Create a grid of overlapping images
-    - Verify the final mosaic combines all images
+    - Create a grid of overlapping images with rich features.
+    - Verify the final mosaic combines all images correctly.
     """
-    # Create a large source image with features
-    canvas = np.zeros((200, 600), dtype=np.uint8)
-    for i in range(1, 6): # Add vertical lines as features
-        cv2.line(canvas, (i*100, 0), (i*100, 200), 255, 3)
+    # Create a large source image with features ORB can detect
+    canvas = np.zeros((300, 800), dtype=np.uint8)
+
+    # Add random circles to act as reliable features
+    for _ in range(100):
+        center = (np.random.randint(20, 780), np.random.randint(20, 280))
+        radius = np.random.randint(5, 25)
+        color = np.random.randint(50, 255)
+        cv2.circle(canvas, center, radius, color, -1)
+
+    cv2.putText(canvas, "Section 1", (50, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 2)
+    cv2.putText(canvas, "Section 2", (350, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 2)
+    cv2.putText(canvas, "Section 3", (650, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, 255, 2)
 
     # Extract 3 overlapping images from the source
-    img_width = 250
-    overlap = 50
+    img_width = 350
+    overlap = 100
     images = [
-        canvas[:, 0:img_width],  # 0 to 250
-        canvas[:, img_width - overlap : 2 * img_width - overlap], # 200 to 450
-        canvas[:, 2 * img_width - 2 * overlap : 3 * img_width - 2 * overlap] # 400 to 650 -> clip at 600
+        canvas[:, 0:img_width],  # 0 to 350
+        canvas[:, img_width - overlap : 2 * img_width - overlap],  # 250 to 600
+        canvas[
+            :, 2 * img_width - 2 * overlap : 3 * img_width - 2 * overlap
+        ],  # 500 to 850 (clipped at 800)
     ]
-    
+
     # Create and verify the mosaic
     mosaic = create_mosaic(images)
 
     assert mosaic is not None, "Failed to create mosaic from multiple images"
-    assert mosaic.shape[1] > img_width, "Mosaic width should be larger than a single image"
+    # The final mosaic should be wider than one image and narrower than the sum of all widths
+    assert (
+        mosaic.shape[1] > img_width
+    ), "Mosaic width should be larger than a single image"
+    assert mosaic.shape[1] < (
+        3 * img_width
+    ), "Mosaic width should be smaller than the sum of widths"
 
 
 # Smoke test for create_mosaic() with real microscopy data.
