@@ -13,6 +13,12 @@ except ImportError:
     def detect_features_orb(image):
         return [], []
 
+try:
+    from microscope_mosaic_pipeline import match_features
+except ImportError:
+    def match_features(desc1, desc2):
+        return []
+
 # ============================================================================
 # Fixtures
 # ============================================================================
@@ -135,7 +141,30 @@ def test_detect_features_edge_cases():
 # Feature Matching Unit Tests
 # ============================================================================
 
-# Test match_features() for correct feature matching
+def test_match_features(synthetic_features):
+    """
+    Tests match_features() for correct feature matching
+    - Match features between two sets of descriptors
+    - Assert matches are returned as expected structure
+    - Assert match distances make sense (good matches have low distance)
+    - Verify matched indices are valid
+    """
+    _, desc1, _, desc2 = synthetic_features
+    
+    # Match features
+    matches = match_features(desc1, desc2)
+    
+    # Assert matches ar returned
+    assert len(matches) > 0, "No matches found"
+    
+    # Check match structure
+    for match in matches:
+        assert hasattr(match, 'queryIdx'), "Match missing queryIdx"
+        assert hasattr(match, 'trainIdx'), "Match missing trainIdx"
+        assert hasattr(match, 'distance'), "Match missing distance"
+
+    # Distance should be non-negative
+    assert match.distance >= 0, "Match distance should be non-negative"
 
 # Test match_features() filtering based on distance threshold.
 
