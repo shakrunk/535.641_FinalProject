@@ -233,9 +233,23 @@ def test_match_features_with_threshold(mocker):
     # Mock the matcher to return our controlled matches
     with patch("cv2.BFMatcher") as mock_bf:
         mock_matcher = Mock()
-        mock_matcher.knnMatch.return_vale = [
-            [m, Mock(distance=m.distance * 2)] for m in mock_matches
+
+        # Define pairs that will pass or fail the ratio test (0.7)
+        mock_knn_matches = [
+            # GOOD: 10.0 < 0.7 * 20.0  (10.0 < 14.0) -> True
+            [Mock(distance=10.0), Mock(distance=20.0)],
+
+            # GOOD: 20.0 < 0.7 * 40.0  (20.0 < 28.0) -> True
+            [Mock(distance=20.0), Mock(distance=40.0)],
+
+            # BAD: 100.0 < 0.7 * 110.0 (100.0 < 77.0) -> False
+            [Mock(distance=100.0), Mock(distance=110.0)],
+
+            # BAD: 150.0 < 0.7 * 160.0 (150.0 < 112.0) -> False
+            [Mock(distance=150.0), Mock(distance=160.0)],
         ]
+
+        mock_matcher.knnMatch.return_value = mock_knn_matches
         mock_bf.return_value = mock_matcher
 
         matches = match_features(desc1, desc2, ratio_threshold=0.7)
