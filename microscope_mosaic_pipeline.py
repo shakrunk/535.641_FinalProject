@@ -28,6 +28,13 @@ Focus Stacking:
     - build_gaussian_pyramid(): Creates a gaussian pyramid of an image.
     - build_laplacian_pyramid(): Creates a laplacian pyramid of an image.
     - fuse_pyramids(): Fuses Laplacian pyramids based on a focus decision map.
+Mosaic Stitching:
+    - create_mosaic(): Sequentially stitches a list of multiple images.
+    - detect_features_orb(): Detects ORB features in an image.
+    - match_features(): Matches keypoint descriptors between two images.
+    - estimate_homography(): Estimates image transformation with RANSAC.
+    - warp_image(): Applies a perspective transformation to an image.
+    - blend_images(): Blends multiple overlapping images into one.
 
 Usage
 ---
@@ -49,7 +56,7 @@ Dependencies
 
 import cv2
 import numpy as np
-from typing import List
+from typing import List, Tuple, Optional, Union
 
 # ============================================================================
 # Stage 1: Per-location Depth-of-Field Extension (Focus Stacking)
@@ -286,3 +293,277 @@ def process_z_stack(z_stack: List[np.ndarray]) -> np.ndarray:
     fused_image = fuse_pyramids(z_stack, decision_map)
 
     return fused_image
+
+
+# ============================================================================
+# Stage 2: Spacial Mosaic Stitching
+# ============================================================================
+
+
+def detect_features_orb(
+    image: np.ndarray, n_features: int = 5000
+) -> Tuple[List[cv2.KeyPoint], np.ndarray]:
+    """
+    Detect ORB (Oriented FAST and Rotated BRIEF) features in an image.
+
+    Args:
+        image: Input image
+        n_features: Maximum number of features to detect
+
+    Returns:
+        Tuple of (keypoints, descriptors)
+    """
+    # Convert to grayscale if needed
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image
+
+    # Create ORB detector
+    orb = cv2.ORB_create(
+        nfeatures=n_features,
+        scaleFactor=1.2,
+        nlevels=8,
+        edgeThreshold=31,
+        firstLevel=0,
+        WTA_K=2,
+        scoreType=cv2.ORB_HARRIS_SCORE,
+        patchSize=31,
+    )
+
+    # Detect keypoints and compute descriptors
+    keypoints, descriptors = orb.detectAndCompute(gray, None)
+
+    return keypoints, descriptors
+
+
+def match_features(
+    desc1: np.ndarray, desc2: np.ndarray, ratio_threshold: float = 0.7
+) -> List:
+    """
+    Match ORB features between two sets of descriptors using brute force matching.
+
+    Args:
+        desc1: Descriptors from first image
+        desc2: Descriptors from second image
+        ratio_threshold: Lowe's ratio test threshold
+
+    Returns:
+        List of good matches
+    """
+    # Create brute force matcher with Hamming distance (for binary descriptors)
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
+
+    # Match descriptors
+    matches = bf.knnMatch(desc1, desc2, k=2)
+
+    # Apply Lowe's ratio test to filter good matches
+    good_matches = []
+    for match_pair in matches:
+        if len(match_pair) == 2:
+            m, n = match_pair
+            if m.distance < ratio_threshold * n.distance:
+                good_matches.append(m)
+
+    return good_matches
+
+
+def estimate_homography(
+    src_pts: np.ndarray,
+    dst_pts: np.ndarray,
+    ransac_threshold: float = 5.0,
+    confidence: float = 0.99,
+) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    """
+    Estimate homography between two images using RANSAC.
+
+    Args:
+        src_pts: NumPy array of source points (N, 2)
+        dst_pts: NumPy array of destination points (N, 2)
+        ransac_threshold: RANSAC re-projection error threshold in pixels
+        confidence: Desired confidence level
+
+    Returns:
+        A tuple containing:
+        - 3x3 homography matrix (or None if not found)
+        - Inlier mask (or None if not found)
+    """
+    if len(src_pts) < 4:
+        return None, None
+
+    # Find homography using RANSAC
+    # Note: cv2.findHomography expects points in shape (N, 1, 2)
+    homography, mask = cv2.findHomography(
+        src_pts.reshape(-1, 1, 2),
+        dst_pts.reshape(-1, 1, 2),
+        cv2.RANSAC,
+        ransacReprojThreshold=ransac_threshold,
+        confidence=confidence,
+    )
+
+    # Count inliers
+    if mask is not None:
+        inliers = np.sum(mask)
+        print(f"RANSAC found {inliers}/{len(src_pts)} inliers")
+
+    # The mask from findHomography is a column vector (N, 1) of uint8.
+    return homography, mask
+
+
+def warp_image(
+    img: np.ndarray,
+    homography: np.ndarray,
+    output_shape: Tuple[int, int],
+    return_mask: bool = False,
+) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+    """
+    Warps an image using a given homography matrix.
+
+    Args:
+        img: The image to be warped.
+        homography: The 3x3 transformation matrix.
+        output_shape: A tuple (height, width) for the output canvas.
+        return_mask: If True, also returns a mask of the valid warped pixels.
+
+    Returns:
+        The warped image. If return_mask is True, returns a tuple of
+        (warped_image, mask).
+    """
+    # Note: cv2.warpPerspective expects (width, height)
+    output_wh = (output_shape[1], output_shape[0])
+
+    warped_img = cv2.warpPerspective(img, homography, output_wh)
+
+    if return_mask:
+        # Create a mask of the same size as the input image
+        if img.ndim > 2:  # Handle color or grayscale images
+            mask_in = np.ones(img.shape[:2], dtype=np.uint8) * 255
+        else:
+            mask_in = np.ones_like(img, dtype=np.uint8) * 255
+
+        # Warp the mask to find the valid pixel area in the output
+        warped_mask = cv2.warpPerspective(
+            mask_in, homography, output_wh, flags=cv2.INTER_NEAREST
+        )
+        return warped_img, warped_mask
+
+    return warped_img
+
+
+def blend_images(images: List[np.ndarray], masks: List[np.ndarray]) -> np.ndarray:
+    """
+    Blends multiple images together using feathered weighting.
+
+    Args:
+        images: A list of images to blend.
+        masks: A list of corresponding masks (255 for valid pixels).
+
+    Returns:
+        A single blended image.
+    """
+    output_shape = images[0].shape
+    blended_image = np.zeros(output_shape, dtype=np.float32)
+    weight_sum = np.zeros(output_shape[:2], dtype=np.float32)
+
+    for img, mask in zip(images, masks):
+        # Use distance transform for smooth feathering at the edges
+        # This creates a weight map that falls off towards the mask boundaries
+        weights = cv2.distanceTransform(mask, cv2.DIST_L2, 5).astype(np.float32)
+
+        # Add weights to the total weight map, handling multiple channels if necessary
+        if img.ndim > 2:
+            weights = cv2.cvtColor(weights, cv2.COLOR_GRAY2BGR)
+
+        blended_image += img.astype(np.float32) * weights
+        weight_sum += weights
+
+    # Avoid division by zero
+    # np.where is faster than creating a mask and indexing
+    result = np.where(weight_sum > 0, blended_image / weight_sum, 0)
+
+    return result.astype(np.uint8)
+
+def create_mosaic(images: List[np.ndarray]) -> np.ndarray:
+    """
+    Stitch multiple images into a panoramic mosaic.
+    
+    Args:
+        images: List of images to stitch
+    
+    Returns:
+        Stitched panoramic image or None if input is empty.
+    """
+    if not images:
+        return None
+    if len(images) < 2:
+        return images[0]
+
+    print(f"Stitching {len(images)} images...")
+
+    # Start with the first image as the base mosaic
+    mosaic = images[0].copy()
+
+    # Sequentially stitch each subsequent image
+    for i in range(1, len(images)):
+        print(f"Processing image {i+1}/{len(images)}")
+        img_to_add = images[i]
+
+        # Detect features in the current mosaic and the new image
+        kp_mosaic, desc_mosaic = detect_features_orb(mosaic)
+        kp_new, desc_new = detect_features_orb(img_to_add)
+
+        if desc_mosaic is None or desc_new is None:
+            print(f"Warning: No features detected in image pair involving image {i+1}")
+            continue
+
+        # Match features between the mosaic and the new image
+        matches = match_features(desc_mosaic, desc_new)
+        print(f"Found {len(matches)} feature matches")
+
+        if len(matches) < 10:  # Need at least 4 matches, but more is better
+            print(f"Warning: Not enough matches for image {i+1}")
+            continue
+
+        # Source points are from the new image, destination points are on the existing mosaic
+        source_pts = np.float32([kp_new[m.trainIdx].pt for m in matches])
+        destination_pts = np.float32([kp_mosaic[m.queryIdx].pt for m in matches])
+
+        # Estimate the homography matrix (H)
+        homography, _ = estimate_homography(source_pts, destination_pts)
+
+        if homography is None:
+            print(f"Warning: Could not compute homography for image {i+1}")
+            continue
+
+        # Calculate the dimensions of the combined canvas
+        h_mosaic, w_mosaic = mosaic.shape[:2]
+        h_new, w_new = img_to_add.shape[:2]
+        
+        corners_new_img = np.float32([[0, 0], [0, h_new], [w_new, h_new], [w_new, 0]]).reshape(-1, 1, 2)
+        corners_mosaic_img = np.float32([[0, 0], [0, h_mosaic], [w_mosaic, h_mosaic], [w_mosaic, 0]]).reshape(-1, 1, 2)
+        
+        # Transform the corners of the new image to find its position in the mosaic's space
+        transformed_corners = cv2.perspectiveTransform(corners_new_img, homography)
+        
+        # Find the bounding box of the combined images
+        all_corners = np.concatenate((corners_mosaic_img, transformed_corners), axis=0)
+        x_min, y_min = np.int32(all_corners.min(axis=0).ravel())
+        x_max, y_max = np.int32(all_corners.max(axis=0).ravel())
+        
+        # Create a translation matrix to shift the canvas to positive coordinates
+        translation_dist = [-x_min, -y_min]
+        H_translation = np.array([[1, 0, translation_dist[0]], [0, 1, translation_dist[1]], [0, 0, 1]], dtype=np.float32)
+        
+        # Warp both images onto the new, larger canvas
+        output_shape = (y_max - y_min, x_max - x_min)
+        
+        # Warp the new image using the composite transformation (translation * homography)
+        warped_new, mask_new = warp_image(img_to_add, H_translation @ homography, output_shape, return_mask=True)
+        
+        # Warp the existing mosaic using only the translation
+        warped_mosaic, mask_mosaic = warp_image(mosaic, H_translation, output_shape, return_mask=True)
+
+        # Blend the images and update the mosaic for the next iteration
+        mosaic = blend_images([warped_mosaic, warped_new], [mask_mosaic, mask_new])
+    
+    return mosaic
