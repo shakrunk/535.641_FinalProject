@@ -491,41 +491,79 @@ def create_mosaic(images: List[np.ndarray]) -> np.ndarray:
         images: List of images to stitch
     
     Returns:
-        Stitched panoramic image
+        Stitched panoramic image or None if input is empty.
     """
+    if not images:
+        return None
     if len(images) < 2:
-        return images[0] if images else None
-    
+        return images[0]
+
     print(f"Stitching {len(images)} images...")
-    
-    # Start with the first image
-    result = images[0].copy()
-    
-    # Sequentially stitch each image
+
+    # Start with the first image as the base mosaic
+    mosaic = images[0].copy()
+
+    # Sequentially stitch each subsequent image
     for i in range(1, len(images)):
         print(f"Processing image {i+1}/{len(images)}")
-        
-        # Detect features
-        kp1, desc1 = detect_features_orb(result)
-        kp2, desc2 = detect_features_orb(images[i])
-        
-        if desc1 is None or desc2 is None:
-            print(f"Warning: No features detected in image pair {i}")
+        img_to_add = images[i]
+
+        # Detect features in the current mosaic and the new image
+        kp_mosaic, desc_mosaic = detect_features_orb(mosaic)
+        kp_new, desc_new = detect_features_orb(img_to_add)
+
+        if desc_mosaic is None or desc_new is None:
+            print(f"Warning: No features detected in image pair involving image {i+1}")
             continue
-        
-        # Match features
-        matches = match_features(desc1, desc2)
+
+        # Match features between the mosaic and the new image
+        matches = match_features(desc_mosaic, desc_new)
         print(f"Found {len(matches)} feature matches")
-        
-        if len(matches) < 10:
+
+        if len(matches) < 10:  # Need at least 4 matches, but more is better
             print(f"Warning: Not enough matches for image {i+1}")
             continue
-        
-        # Estimate homography
-        homography = estimate_homography(kp1, kp2, matches)
-        
+
+        # Source points are from the new image, destination points are on the existing mosaic
+        source_pts = np.float32([kp_new[m.trainIdx].pt for m in matches])
+        destination_pts = np.float32([kp_mosaic[m.queryIdx].pt for m in matches])
+
+        # Estimate the homography matrix (H)
+        homography, _ = estimate_homography(source_pts, destination_pts)
+
         if homography is None:
             print(f"Warning: Could not compute homography for image {i+1}")
             continue
+
+        # Calculate the dimensions of the combined canvas
+        h_mosaic, w_mosaic = mosaic.shape[:2]
+        h_new, w_new = img_to_add.shape[:2]
         
-    return result
+        corners_new_img = np.float32([[0, 0], [0, h_new], [w_new, h_new], [w_new, 0]]).reshape(-1, 1, 2)
+        corners_mosaic_img = np.float32([[0, 0], [0, h_mosaic], [w_mosaic, h_mosaic], [w_mosaic, 0]]).reshape(-1, 1, 2)
+        
+        # Transform the corners of the new image to find its position in the mosaic's space
+        transformed_corners = cv2.perspectiveTransform(corners_new_img, homography)
+        
+        # Find the bounding box of the combined images
+        all_corners = np.concatenate((corners_mosaic_img, transformed_corners), axis=0)
+        x_min, y_min = np.int32(all_corners.min(axis=0).ravel())
+        x_max, y_max = np.int32(all_corners.max(axis=0).ravel())
+        
+        # Create a translation matrix to shift the canvas to positive coordinates
+        translation_dist = [-x_min, -y_min]
+        H_translation = np.array([[1, 0, translation_dist[0]], [0, 1, translation_dist[1]], [0, 0, 1]], dtype=np.float32)
+        
+        # Warp both images onto the new, larger canvas
+        output_shape = (y_max - y_min, x_max - x_min)
+        
+        # Warp the new image using the composite transformation (translation * homography)
+        warped_new, mask_new = warp_image(img_to_add, H_translation @ homography, output_shape, return_mask=True)
+        
+        # Warp the existing mosaic using only the translation
+        warped_mosaic, mask_mosaic = warp_image(mosaic, H_translation, output_shape, return_mask=True)
+
+        # Blend the images and update the mosaic for the next iteration
+        mosaic = blend_images([warped_mosaic, warped_new], [mask_mosaic, mask_new])
+    
+    return mosaic
